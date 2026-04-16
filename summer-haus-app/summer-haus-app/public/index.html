@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Summer Haus 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+:root{
+  --orange:#F5620F; --bg:#0a0a0a; --surface:#111; --surface2:#181818;
+  --border:#252525; --bb:#333; --text:#f0f0f0; --dim:#888; --muted:#555;
+  --green:#22c55e; --red:#ef4444; --yellow:#eab308; --blue:#3b82f6; --purple:#a855f7;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;padding-bottom:env(safe-area-inset-bottom);}
+
+/* ── HEADER ── */
+.hdr{background:var(--surface);border-bottom:2px solid var(--orange);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:200;}
+.hdr-brand{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:2px;text-transform:uppercase;}
+.hdr-brand span{color:var(--orange);}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.conn{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:3px;}
+.conn.ok{background:rgba(34,197,94,.15);color:var(--green);}
+.conn.err{background:rgba(239,68,68,.15);color:var(--red);}
+.logout-btn{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:none;border:1px solid var(--bb);color:var(--dim);padding:4px 10px;border-radius:3px;cursor:pointer;}
+.logout-btn:hover{color:var(--orange);border-color:var(--orange);}
+
+/* ── DESKTOP NAV ── */
+.desk-nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 20px;overflow-x:auto;scrollbar-width:none;}
+.desk-nav::-webkit-scrollbar{display:none;}
+.nt{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:13px 15px;cursor:pointer;color:var(--dim);border-bottom:3px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;}
+.nt:hover{color:var(--text);}.nt.active{color:var(--orange);border-bottom-color:var(--orange);}
+
+/* ── MOBILE BOTTOM NAV ── */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:200;padding-bottom:env(safe-area-inset-bottom);}
+.mob-nav-inner{display:grid;grid-template-columns:repeat(5,1fr);}
+.mnt{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 8px;cursor:pointer;color:var(--dim);background:none;border:none;gap:3px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:.5px;text-transform:uppercase;font-weight:700;}
+.mnt.active{color:var(--orange);}
+.mnt svg{width:22px;height:22px;}
+.mnt-more{position:relative;}
+.mob-menu{display:none;position:absolute;bottom:64px;right:0;background:var(--surface);border:1px solid var(--bb);border-radius:6px;min-width:180px;overflow:hidden;z-index:300;}
+.mob-menu.open{display:block;}
+.mob-menu button{display:block;width:100%;text-align:left;padding:12px 16px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;}
+.mob-menu button:hover{background:var(--surface2);color:var(--orange);}
+.mob-menu button:last-child{border-bottom:none;}
+
+/* ── LAYOUT ── */
+.main{padding:20px;max-width:1600px;margin:0 auto;}
+.sec{display:none;}.sec.active{display:block;}
+.loading{text-align:center;padding:60px 0;color:var(--dim);font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:2px;text-transform:uppercase;}
+
+/* ── STAT CARDS ── */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-bottom:20px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px;position:relative;overflow:hidden;}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--orange);}
+.sc.g::before{background:var(--green);}.sc.r::before{background:var(--red);}.sc.y::before{background:var(--yellow);}.sc.b::before{background:var(--blue);}.sc.p::before{background:var(--purple);}
+.sl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:6px;}
+.sv{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:32px;line-height:1;}
+.ss{font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* ── CHARTS ── */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:20px;}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;}
+.ct{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);margin-bottom:14px;}
+.cw{position:relative;height:200px;}
+
+/* ── WEEK CAPACITY BAR ── */
+.wcap{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 18px;margin-bottom:16px;}
+.wgrid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:10px;}
+.wi{text-align:center;}
+.wl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
+.wn{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;color:var(--orange);}
+.wbo{height:5px;background:var(--bb);border-radius:3px;margin-top:5px;overflow:hidden;}
+.wbi{height:100%;background:var(--orange);border-radius:3px;}
+
+/* ── SECTION HEADERS ── */
+.stitle{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+.ssub{color:var(--dim);font-size:13px;margin-bottom:18px;}
+
+/* ── TABLE ── */
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+.si{background:var(--surface);border:1px solid var(--bb);border-radius:4px;color:var(--text);padding:8px 12px;font-family:'Barlow',sans-serif;font-size:13px;outline:none;min-width:200px;flex:1;}
+.si:focus,.fi:focus,.fo:focus,.fta:focus{border-color:var(--orange);}
+.fs{background:var(--surface);border:1px solid var(--bb);border-radius:4px;color:var(--text);padding:8px 10px;font-family:'Barlow',sans-serif;font-size:13px;outline:none;cursor:pointer;}
+.btn{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 16px;border-radius:4px;cursor:pointer;border:none;}
+.bo,.ba{background:var(--orange);color:#000;}.bo:hover,.ba:hover{background:#c04d0b;}
+.bg{background:transparent;border:1px solid var(--bb);color:var(--dim);}.bg:hover{border-color:var(--orange);color:var(--orange);}
+.bdel{background:rgba(239,68,68,.15);border:1px solid var(--red);color:var(--red);}.bdel:hover{background:var(--red);color:#000;}
+.cb{font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--dim);margin-bottom:8px;}
+.cb span{color:var(--orange);font-weight:700;}
+
+/* Desktop table */
+.tw{overflow-x:auto;border-radius:6px;}
+table{width:100%;border-collapse:collapse;min-width:800px;}
+thead th{background:var(--surface2);padding:10px 12px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--bb);cursor:pointer;user-select:none;white-space:nowrap;}
+thead th:hover{color:var(--orange);}
+tbody tr{border-bottom:1px solid var(--border);}
+tbody tr:hover{background:var(--surface2);}
+tbody td{padding:9px 12px;font-size:13px;vertical-align:middle;}
+
+/* ── MOBILE CARDS (replaces table rows on small screens) ── */
+.m-cards{display:none;flex-direction:column;gap:8px;}
+.m-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 16px;cursor:pointer;position:relative;}
+.m-card:hover,.m-card:active{background:var(--surface2);}
+.m-card-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:17px;letter-spacing:.5px;margin-bottom:6px;}
+.m-card-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.m-card-detail{font-size:12px;color:var(--dim);}
+.m-card-alert{background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.3);border-radius:4px;padding:5px 10px;font-size:12px;color:var(--yellow);margin-top:8px;}
+.m-card-arrow{position:absolute;top:14px;right:14px;color:var(--bb);font-size:18px;}
+.m-wk-dots{display:flex;gap:3px;margin-top:6px;}
+.m-wd{width:22px;height:22px;border-radius:3px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.m-wd.on{background:var(--orange);color:#000;}.m-wd.off{background:var(--bb);color:var(--muted);}
+
+/* ── BADGE ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+.bft{background:rgba(245,98,15,.2);color:var(--orange);}.bpt{background:rgba(59,130,246,.2);color:var(--blue);}
+.byes{background:rgba(34,197,94,.15);color:var(--green);}.bno{background:rgba(239,68,68,.15);color:var(--red);}
+.bfailed{background:rgba(234,179,8,.15);color:var(--yellow);}.bpending{background:rgba(136,136,136,.15);color:var(--dim);}
+.blead{background:rgba(168,85,247,.15);color:var(--purple);}.benrolled{background:rgba(34,197,94,.15);color:var(--green);}
+.wdots{display:flex;gap:3px;}
+.wd{width:14px;height:14px;border-radius:2px;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:rgba(0,0,0,.7);}
+.wd.on{background:var(--orange);}.wd.off{background:var(--bb);}
+
+/* ── ACTION / ALLERGY / PIPELINE CARDS ── */
+.al{display:flex;flex-direction:column;gap:8px;}
+.ai{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:4px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.ai:hover{background:var(--surface2);}.ai.ur{border-left-color:var(--red);}.ai.wn{border-left-color:var(--yellow);}
+.an{font-weight:600;font-size:14px;min-width:150px;}.ais{color:var(--dim);font-size:13px;flex:1;}.ac{font-size:12px;color:var(--muted);}
+.acard,.pcard{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px 16px;margin-bottom:6px;cursor:pointer;}
+.acard{border-left:3px solid var(--red);}.pcard{border-left:3px solid var(--purple);}
+.acard:hover,.pcard:hover{background:var(--surface2);}
+
+/* ── FORM ── */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.addfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:16px;}
+.fg,.addfg{display:flex;flex-direction:column;gap:5px;}
+.fl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);}
+.fi,.fo,.fta{background:var(--surface);border:1px solid var(--bb);border-radius:4px;color:var(--text);padding:10px 12px;font-family:'Barlow',sans-serif;font-size:14px;outline:none;width:100%;}
+.fo option{background:var(--surface2);}.fta{resize:vertical;min-height:60px;}
+.wcbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+.wcb{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--dim);cursor:pointer;}
+.wcb input{accent-color:var(--orange);}
+
+/* ── MODAL ── */
+.mov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;align-items:center;justify-content:center;padding:16px;}
+.mov.open{display:flex;}
+.mod{background:var(--surface2);border:1px solid var(--bb);border-top:3px solid var(--orange);border-radius:6px;padding:24px;max-width:720px;width:100%;max-height:90vh;overflow-y:auto;position:relative;}
+.mt{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;color:var(--orange);padding-right:30px;}
+.mc{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--dim);font-size:22px;cursor:pointer;line-height:1;padding:4px;}
+.mc:hover{color:var(--text);}
+.dr{display:grid;grid-template-columns:120px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.dr:last-child{border-bottom:none;}
+.dk{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:1px;padding:12px 24px;border-radius:4px;z-index:400;display:none;white-space:nowrap;}
+.toast.s{background:var(--green);color:#000;}
+.toast.e{background:var(--red);color:#fff;}
+
+/* ── WEEK BUTTONS ── */
+.wk-btns{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 768px) {
+  .main{padding:14px;padding-bottom:80px;}
+  .desk-nav{display:none;}
+  .mob-nav{display:block;}
+  .tw{display:none;}
+  .m-cards{display:flex;}
+  .hdr{padding:0 14px;height:52px;}
+  .hdr-brand{font-size:18px;}
+  .logout-btn{font-size:10px;padding:3px 8px;}
+  .conn{display:none;}
+  .sgrid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .sv{font-size:28px;}
+  .cgrid{grid-template-columns:1fr;}
+  .stitle{font-size:22px;}
+  .fgrid{grid-template-columns:1fr;}
+  .mod{padding:18px;max-height:95vh;}
+  .dr{grid-template-columns:110px 1fr;}
+  .toast{bottom:72px;font-size:13px;}
+  .wk-btns .btn{font-size:12px;padding:7px 10px;}
+  .toolbar{gap:6px;}
+  .si{min-width:150px;}
+  .addfgrid{grid-template-columns:1fr 1fr;}
+  .ai{flex-wrap:wrap;gap:6px;}
+  .an{min-width:unset;font-size:15px;}
+  .wgrid{gap:4px;}
+  .wn{font-size:20px;}
+}
+@media (max-width: 400px) {
+  .sgrid{grid-template-columns:repeat(2,1fr);}
+  .addfgrid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-brand"><span>Haus</span> of Athletes</div>
+  <div class="hdr-right">
+    <div class="conn ok" id="connStatus">&#9679; Live</div>
+    <form method="POST" action="/logout" style="margin:0">
+      <button class="logout-btn" type="submit">Sign Out</button>
+    </form>
+  </div>
+</header>
+
+<!-- Desktop nav -->
+<nav class="desk-nav">
+  <button class="nt active" onclick="sw('dashboard',this)">Dashboard</button>
+  <button class="nt" onclick="sw('roster',this)">Roster</button>
+  <button class="nt" onclick="sw('actions',this)">Action Items</button>
+  <button class="nt" onclick="sw('weeks',this)">Week View</button>
+  <button class="nt" onclick="sw('allergies',this)">Allergies &amp; Medical</button>
+  <button class="nt" onclick="sw('pipeline',this)">Leads</button>
+  <button class="nt" onclick="sw('comps',this)">Comps</button>
+  <button class="nt" onclick="sw('add',this)">+ Add Camper</button>
+</nav>
+
+<!-- Mobile bottom nav -->
+<nav class="mob-nav">
+  <div class="mob-nav-inner">
+    <button class="mnt active" id="mnt-dashboard" onclick="sw('dashboard',null,'dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Home
+    </button>
+    <button class="mnt" id="mnt-roster" onclick="sw('roster',null,'roster')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Roster
+    </button>
+    <button class="mnt" id="mnt-weeks" onclick="sw('weeks',null,'weeks')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Weeks
+    </button>
+    <button class="mnt" id="mnt-allergies" onclick="sw('allergies',null,'allergies')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Medical
+    </button>
+    <button class="mnt mnt-more" id="mnt-more" onclick="toggleMobMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      More
+      <div class="mob-menu" id="mobMenu">
+        <button onclick="sw('actions',null,'actions');toggleMobMenu()">Action Items</button>
+        <button onclick="sw('pipeline',null,'pipeline');toggleMobMenu()">Leads Pipeline</button>
+        <button onclick="sw('comps',null,'comps');toggleMobMenu()">Comps</button>
+        <button onclick="sw('add',null,'add');toggleMobMenu()">+ Add Camper</button>
+      </div>
+    </button>
+  </div>
+</nav>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div id="tab-dashboard" class="sec active">
+  <div class="stitle">Overview</div>
+  <div class="ssub">Summer Haus 2026</div>
+  <div class="sgrid" id="sCards"><div class="loading">Loading...</div></div>
+  <div class="wcap">
+    <div class="ct">Campers Per Week</div>
+    <div class="wgrid" id="wCaps"></div>
+  </div>
+  <div class="cgrid">
+    <div class="cc"><div class="ct">Age Distribution</div><div class="cw"><canvas id="cAge"></canvas></div></div>
+    <div class="cc"><div class="ct">FT vs PT</div><div class="cw"><canvas id="cFTPT"></canvas></div></div>
+    <div class="cc"><div class="ct">Top Towns</div><div class="cw"><canvas id="cCity"></canvas></div></div>
+    <div class="cc"><div class="ct">T-Shirt Sizes</div><div class="cw"><canvas id="cShirt"></canvas></div></div>
+    <div class="cc"><div class="ct">Payment Status</div><div class="cw"><canvas id="cPay"></canvas></div></div>
+    <div class="cc"><div class="ct">Enrolled vs Leads</div><div class="cw"><canvas id="cBrk"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ROSTER -->
+<div id="tab-roster" class="sec">
+  <div class="stitle">Full Roster</div>
+  <div class="ssub">Tap any camper to view or edit</div>
+  <div class="toolbar">
+    <input class="si" id="rSrch" placeholder="&#128269; Search..." oninput="renderRoster()">
+    <select class="fs" id="fSt" onchange="renderRoster()"><option value="">All</option><option value="enrolled">Enrolled</option><option value="lead">Lead</option></select>
+    <select class="fs" id="fTy" onchange="renderRoster()"><option value="">Type</option><option value="FT">FT</option><option value="PT">PT</option></select>
+    <select class="fs" id="fPd" onchange="renderRoster()"><option value="">Payment</option><option value="yes">Paid</option><option value="no">Unpaid</option><option value="failed">Failed</option></select>
+    <button class="btn bg" onclick="resetF()">Reset</button>
+  </div>
+  <div class="cb" id="rCnt"></div>
+  <!-- Desktop table -->
+  <div class="tw"><table>
+    <thead><tr>
+      <th onclick="srt('name')">Camper &#8597;</th><th onclick="srt('status')">Status &#8597;</th>
+      <th onclick="srt('age')">Age &#8597;</th><th onclick="srt('city')">City &#8597;</th>
+      <th onclick="srt('ptft')">Type &#8597;</th><th onclick="srt('paid')">Paid &#8597;</th>
+      <th onclick="srt('enrollment')">Enrolled &#8597;</th><th>Weeks</th><th>Shirt</th><th>Parent</th>
+    </tr></thead>
+    <tbody id="rBody"></tbody>
+  </table></div>
+  <!-- Mobile cards -->
+  <div class="m-cards" id="rMobile"></div>
+</div>
+
+<!-- ACTIONS -->
+<div id="tab-actions" class="sec">
+  <div class="stitle">Action Items</div>
+  <div class="ssub">Campers needing follow-up</div>
+  <div id="aList"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- WEEKS -->
+<div id="tab-weeks" class="sec">
+  <div class="stitle">Week View</div>
+  <div class="ssub">Who is attending each week</div>
+  <div class="wk-btns">
+    <button class="btn ba" id="wB1" onclick="showWk(1)">Wk 1</button>
+    <button class="btn bg" id="wB2" onclick="showWk(2)">Wk 2</button>
+    <button class="btn bg" id="wB3" onclick="showWk(3)">Wk 3</button>
+    <button class="btn bg" id="wB4" onclick="showWk(4)">Wk 4</button>
+    <button class="btn bg" id="wB5" onclick="showWk(5)">Wk 5</button>
+    <button class="btn bg" id="wB6" onclick="showWk(6)">Wk 6</button>
+    <button class="btn bg" id="wB7" onclick="showWk(7)">Wk 7</button>
+    <button class="btn bg" id="wB8" onclick="showWk(8)">Wk 8</button>
+  </div>
+  <div class="cb" id="wCnt"></div>
+  <!-- Desktop -->
+  <div class="tw"><table>
+    <thead><tr><th>Camper</th><th>Age</th><th>City</th><th>Type</th><th>Shirt</th><th>Allergies</th><th>Medical</th><th>Parent</th><th>Phone</th></tr></thead>
+    <tbody id="wBody"></tbody>
+  </table></div>
+  <!-- Mobile -->
+  <div class="m-cards" id="wMobile"></div>
+</div>
+
+<!-- ALLERGIES -->
+<div id="tab-allergies" class="sec">
+  <div class="stitle">Allergies &amp; Medical</div>
+  <div class="ssub">All medical flags — quick reference on-site</div>
+  <div id="algList"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- LEADS -->
+<div id="tab-pipeline" class="sec">
+  <div class="stitle">Leads Pipeline</div>
+  <div class="ssub">Not yet officially enrolled</div>
+  <div id="pipList"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- COMPS -->
+<div id="tab-comps" class="sec">
+  <div class="stitle">Comps &amp; Unregistered</div>
+  <div class="ssub">8 comps &middot; 3 Alicandros</div>
+  <div id="cmpList"><div class="loading">Loading...</div></div>
+</div>
+
+<!-- ADD -->
+<div id="tab-add" class="sec">
+  <div class="stitle">Add Camper</div>
+  <div class="ssub">Saves directly to database</div>
+  <div class="addfgrid">
+    <div class="addfg"><label class="fl">Name *</label><input class="fi" id="aN" placeholder="First and last name"></div>
+    <div class="addfg"><label class="fl">Age</label><input class="fi" type="number" id="aA" placeholder="Age" min="4" max="18"></div>
+    <div class="addfg"><label class="fl">City</label><input class="fi" id="aCi" placeholder="City / Town"></div>
+    <div class="addfg"><label class="fl">Sex</label><select class="fo" id="aSx"><option value="">—</option><option value="M">Male</option><option value="F">Female</option></select></div>
+    <div class="addfg"><label class="fl">FT / PT</label><select class="fo" id="aPT"><option value="">—</option><option value="FT">Full Time</option><option value="PT">Part Time</option></select></div>
+    <div class="addfg"><label class="fl">Paid?</label><select class="fo" id="aPd"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option><option value="failed">Failed</option></select></div>
+    <div class="addfg"><label class="fl">Enrolled?</label><select class="fo" id="aEn"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select></div>
+    <div class="addfg"><label class="fl">T-Shirt</label><select class="fo" id="aTs"><option value="">—</option><option>YXS</option><option>YS</option><option>YM</option><option>YL</option><option>YXL</option><option>AXS</option><option>AS</option><option>AM</option><option>AL</option><option>AXL</option></select></div>
+    <div class="addfg"><label class="fl">Parent</label><input class="fi" id="aPr" placeholder="Parent / Guardian"></div>
+    <div class="addfg"><label class="fl">Email</label><input class="fi" type="email" id="aEm" placeholder="email@example.com"></div>
+    <div class="addfg"><label class="fl">Phone</label><input class="fi" type="tel" id="aPh" placeholder="xxx-xxx-xxxx"></div>
+    <div class="addfg"><label class="fl">Allergies</label><input class="fi" id="aAl" placeholder="Any allergies"></div>
+  </div>
+  <div class="addfg" style="margin-bottom:14px;">
+    <label class="fl">Weeks</label>
+    <div class="wcbs">
+      <label class="wcb"><input type="checkbox" id="aw1"> Wk 1</label>
+      <label class="wcb"><input type="checkbox" id="aw2"> Wk 2</label>
+      <label class="wcb"><input type="checkbox" id="aw3"> Wk 3</label>
+      <label class="wcb"><input type="checkbox" id="aw4"> Wk 4</label>
+      <label class="wcb"><input type="checkbox" id="aw5"> Wk 5</label>
+      <label class="wcb"><input type="checkbox" id="aw6"> Wk 6</label>
+      <label class="wcb"><input type="checkbox" id="aw7"> Wk 7</label>
+      <label class="wcb"><input type="checkbox" id="aw8"> Wk 8</label>
+      <label class="wcb"><input type="checkbox" id="awA" onchange="togAll(this,'aw')"> All</label>
+    </div>
+  </div>
+  <div class="addfg" style="margin-bottom:20px;"><label class="fl">Medical Notes</label><textarea class="fta" id="aNo" placeholder="Medications, special instructions..."></textarea></div>
+  <button class="btn bo" onclick="submitAdd()" style="font-size:15px;padding:13px 32px;width:100%;max-width:300px;">Save to Database</button>
+</div>
+
+</div><!-- /main -->
+
+<!-- MODAL -->
+<div class="mov" id="mOv" onclick="closeMod(event)">
+  <div class="mod">
+    <button class="mc" onclick="closeModD()">&#x2715;</button>
+    <div class="mt" id="mTitle"></div>
+    <div id="mBody"></div>
+  </div>
+</div>
+<div class="toast s" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let campers=[], comps=[], charts={};
+let sCol='name', sDir=1, currentWk=1;
+const O='#F5620F';
+
+// ── Boot ───────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadAll();
+  renderDashboard(); renderRoster(); renderActions();
+  showWk(1); renderAllergies(); renderPipeline(); renderComps();
+});
+
+async function loadAll() {
+  try {
+    const [cRes, compRes] = await Promise.all([fetch('/api/campers'), fetch('/api/comps')]);
+    if (cRes.status === 401) { window.location='/login'; return; }
+    campers = await cRes.json();
+    comps   = await compRes.json();
+    setConn(true);
+  } catch(e) { setConn(false); }
+}
+
+function setConn(ok) {
+  const el=document.getElementById('connStatus');
+  el.textContent=ok?'● Live':'● Offline';
+  el.className='conn '+(ok?'ok':'err');
+}
+
+// ── Nav ────────────────────────────────────────────────────
+function sw(tab, el, mobileId) {
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nt').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.mnt').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if (el) el.classList.add('active');
+  if (mobileId) {
+    const m=document.getElementById('mnt-'+mobileId);
+    if (m) m.classList.add('active');
+  }
+}
+
+function toggleMobMenu() {
+  document.getElementById('mobMenu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.mnt-more')) document.getElementById('mobMenu').classList.remove('open');
+});
+
+// ── Helpers ────────────────────────────────────────────────
+const en   = () => campers.filter(c=>c.status==='enrolled');
+const ld   = () => campers.filter(c=>c.status==='lead');
+const bdg  = val => {
+  const m={yes:'yes',no:'no',failed:'failed',FT:'ft',PT:'pt',enrolled:'enrolled',lead:'lead'};
+  return `<span class="badge b${m[val]||'pending'}">${val||'—'}</span>`;
+};
+const dots = wa => (wa||[]).map((w,i)=>`<div class="wd ${w?'on':'off'}">${i+1}</div>`).join('');
+const mdots = wa => (wa||[]).map((w,i)=>`<div class="m-wd ${w?'on':'off'}">${i+1}</div>`).join('');
+
+const showToast = (msg, ok=true) => {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+(ok?'s':'e');
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none', 2500);
+};
+
+// ── Dashboard ──────────────────────────────────────────────
+function renderDashboard() {
+  const e=en();
+  const ft=e.filter(c=>c.ptft==='FT').length, pt=e.filter(c=>c.ptft==='PT').length;
+  const ok=e.filter(c=>c.paid==='yes'&&c.enrollment==='yes').length;
+  const nw=e.filter(c=>c.paid!=='yes'||c.enrollment!=='yes').length;
+  const alg=e.filter(c=>c.allergies&&c.allergies.trim()).length;
+  const cards=[
+    {l:'Total',v:campers.length,s:'All names',c:''},
+    {l:'Enrolled',v:e.length,s:'FT + PT',c:'g'},
+    {l:'Leads',v:ld().length,s:'Not enrolled',c:'p'},
+    {l:'Full Time',v:ft,s:'8 weeks',c:''},
+    {l:'Part Time',v:pt,s:'Select weeks',c:'b'},
+    {l:'Confirmed',v:ok,s:'Paid & enrolled',c:'g'},
+    {l:'Follow-up',v:nw,s:'Needs attention',c:'r'},
+    {l:'Med Flags',v:alg,s:'Allergies on file',c:'y'},
+  ];
+  document.getElementById('sCards').innerHTML=cards.map(c=>`<div class="sc ${c.c}"><div class="sl">${c.l}</div><div class="sv">${c.v}</div><div class="ss">${c.s}</div></div>`).join('');
+  const cnt=Array.from({length:8},(_,i)=>e.filter(c=>c.weeks_arr&&c.weeks_arr[i]).length);
+  const mx=Math.max(...cnt,1);
+  document.getElementById('wCaps').innerHTML=cnt.map((n,i)=>`<div class="wi"><div class="wl">Wk ${i+1}</div><div class="wn">${n}</div><div class="wbo"><div class="wbi" style="width:${n/mx*100}%"></div></div></div>`).join('');
+  buildCharts();
+}
+
+function buildCharts() {
+  const e=en();
+  const td={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1a1a',titleColor:'#f0f0f0',bodyColor:'#aaa',borderColor:'#333',borderWidth:1}}};
+  const sc={x:{ticks:{color:'#888'},grid:{color:'#1f1f1f'}},y:{ticks:{color:'#888'},grid:{color:'#1f1f1f'}}};
+  Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};
+  const ag={};e.forEach(c=>{if(c.age>0)ag[c.age]=(ag[c.age]||0)+1;});
+  const al=Object.keys(ag).sort((a,b)=>a-b);
+  charts.age=new Chart(document.getElementById('cAge'),{type:'bar',data:{labels:al.map(a=>`Age ${a}`),datasets:[{data:al.map(a=>ag[a]),backgroundColor:O,borderRadius:3}]},options:{...td,scales:sc}});
+  const ft=e.filter(c=>c.ptft==='FT').length,pt=e.filter(c=>c.ptft==='PT').length;
+  charts.ftpt=new Chart(document.getElementById('cFTPT'),{type:'doughnut',data:{labels:['Full Time','Part Time'],datasets:[{data:[ft,pt],backgroundColor:[O,'#3b82f6'],borderColor:'#111',borderWidth:3}]},options:{...td,plugins:{legend:{display:true,labels:{color:'#aaa'}},tooltip:td.plugins.tooltip},cutout:'65%'}});
+  const ci={};e.forEach(c=>{if(c.city)ci[c.city]=(ci[c.city]||0)+1;});
+  const tc=Object.entries(ci).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  charts.city=new Chart(document.getElementById('cCity'),{type:'bar',data:{labels:tc.map(x=>x[0]),datasets:[{data:tc.map(x=>x[1]),backgroundColor:O,borderRadius:3}]},options:{...td,indexAxis:'y',scales:{x:{ticks:{color:'#888'},grid:{color:'#1f1f1f'}},y:{ticks:{color:'#ccc',font:{size:11}},grid:{color:'#1f1f1f'}}}}});
+  const sh={};e.forEach(c=>{if(c.tshirt)sh[c.tshirt]=(sh[c.tshirt]||0)+1;});
+  const so=['YXS','YS','YM','YL','YXL','AXS','AS','AM','AL','AXL'].filter(s=>sh[s]);
+  charts.shirt=new Chart(document.getElementById('cShirt'),{type:'bar',data:{labels:so,datasets:[{data:so.map(s=>sh[s]||0),backgroundColor:O,borderRadius:3}]},options:{...td,scales:sc}});
+  const pc=e.filter(c=>c.paid==='yes'&&c.enrollment==='yes').length;
+  const ne=e.filter(c=>c.enrollment==='no').length;
+  const fa=e.filter(c=>c.enrollment==='failed'||c.paid==='failed').length;
+  const un=e.length-pc-ne-fa;
+  charts.pay=new Chart(document.getElementById('cPay'),{type:'doughnut',data:{labels:['Confirmed','Not Enrolled','Failed','Unknown'],datasets:[{data:[pc,ne,fa,un],backgroundColor:['#22c55e','#ef4444','#eab308','#555'],borderColor:'#111',borderWidth:3}]},options:{...td,plugins:{legend:{display:true,labels:{color:'#aaa',font:{size:11}}},tooltip:td.plugins.tooltip},cutout:'55%'}});
+  charts.brk=new Chart(document.getElementById('cBrk'),{type:'doughnut',data:{labels:['Enrolled','Leads'],datasets:[{data:[en().length,ld().length],backgroundColor:[O,'#a855f7'],borderColor:'#111',borderWidth:3}]},options:{...td,plugins:{legend:{display:true,labels:{color:'#aaa'}},tooltip:td.plugins.tooltip},cutout:'65%'}});
+}
+
+// ── Roster ─────────────────────────────────────────────────
+function filterCampers() {
+  const s=document.getElementById('rSrch').value.toLowerCase();
+  const fS=document.getElementById('fSt').value;
+  const fT=document.getElementById('fTy').value;
+  const fP=document.getElementById('fPd').value;
+  let d=campers.filter(c=>{
+    if(s&&!`${c.name} ${c.city} ${c.parent} ${c.email}`.toLowerCase().includes(s))return false;
+    if(fS&&c.status!==fS)return false;
+    if(fT&&c.ptft!==fT)return false;
+    if(fP&&c.paid!==fP)return false;
+    return true;
+  });
+  d.sort((a,b)=>{let va=a[sCol]||'',vb=b[sCol]||'';if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();return va<vb?-sDir:va>vb?sDir:0;});
+  return d;
+}
+
+function renderRoster() {
+  const d=filterCampers();
+  document.getElementById('rCnt').innerHTML=`Showing <span>${d.length}</span> of <span>${campers.length}</span>`;
+  // Desktop table
+  document.getElementById('rBody').innerHTML=d.map(c=>`
+    <tr onclick="showD(${c.id})" style="cursor:pointer;">
+      <td><strong>${c.name}</strong></td><td>${bdg(c.status)}</td>
+      <td>${c.age||'—'}</td><td>${c.city||'—'}</td>
+      <td>${c.ptft?bdg(c.ptft):'—'}</td><td>${bdg(c.paid)}</td><td>${bdg(c.enrollment)}</td>
+      <td><div class="wdots">${dots(c.weeks_arr)}</div></td>
+      <td>${c.tshirt||'—'}</td><td style="color:var(--dim)">${c.parent||'—'}</td>
+    </tr>`).join('');
+  // Mobile cards
+  document.getElementById('rMobile').innerHTML=d.map(c=>`
+    <div class="m-card" onclick="showD(${c.id})">
+      <div class="m-card-arrow">›</div>
+      <div class="m-card-name">${c.name}</div>
+      <div class="m-card-row">
+        ${bdg(c.status)} ${c.ptft?bdg(c.ptft):''}
+        ${c.age?`<span class="m-card-detail">Age ${c.age}</span>`:''}
+        ${c.city?`<span class="m-card-detail">${c.city}</span>`:''}
+      </div>
+      <div class="m-card-row">
+        ${bdg(c.paid)} ${bdg(c.enrollment)}
+        ${c.tshirt?`<span class="m-card-detail">&#128248; ${c.tshirt}</span>`:''}
+      </div>
+      <div class="m-wk-dots">${mdots(c.weeks_arr)}</div>
+      ${c.allergies?`<div class="m-card-alert">&#128680; ${c.allergies}</div>`:''}
+    </div>`).join('');
+}
+
+function srt(col){if(sCol===col)sDir*=-1;else{sCol=col;sDir=1;}renderRoster();}
+function resetF(){document.getElementById('rSrch').value='';['fSt','fTy','fPd'].forEach(id=>document.getElementById(id).value='');renderRoster();}
+
+// ── Actions ────────────────────────────────────────────────
+function renderActions() {
+  const e=en();const issues=[];
+  e.forEach(c=>{
+    const items=[];
+    if(c.enrollment==='failed'||c.paid==='failed')items.push({t:'Payment FAILED — retry charge',cls:'ur'});
+    if(c.paid==='no')items.push({t:'Not paid — collect payment',cls:'ur'});
+    if(c.enrollment==='no'&&c.paid==='yes')items.push({t:'Paid but enrollment not confirmed',cls:'wn'});
+    if(!c.tshirt&&c.ptft)items.push({t:'Missing t-shirt size',cls:''});
+    if(!c.email&&c.ptft)items.push({t:'No email on file',cls:'wn'});
+    if(!c.phone&&c.ptft)items.push({t:'No phone on file',cls:'wn'});
+    if(items.length)issues.push({c,items});
+  });
+  document.getElementById('aList').innerHTML=!issues.length
+    ?'<div style="color:var(--green);font-weight:600;padding:20px 0">&#10003; All clear!</div>'
+    :`<div class="cb" style="margin-bottom:14px;"><span>${issues.length}</span> campers need attention</div>
+      <div class="al">${issues.map(x=>x.items.map(item=>`
+        <div class="ai ${item.cls}" onclick="showD(${x.c.id})">
+          <div class="an">${x.c.name}</div>
+          <div class="ais">${item.t}</div>
+          <div class="ac">${x.c.parent||''} ${x.c.phone?'&middot; '+x.c.phone:''}</div>
+        </div>`).join('')).join('')}</div>`;
+}
+
+// ── Week view ──────────────────────────────────────────────
+function showWk(w) {
+  currentWk=w;
+  for(let i=1;i<=8;i++){document.getElementById('wB'+i).className=i===w?'btn ba':'btn bg';}
+  const data=en().filter(c=>c.weeks_arr&&c.weeks_arr[w-1]===1).sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('wCnt').innerHTML=`<span>${data.length}</span> campers attending Week ${w}`;
+  // Desktop
+  document.getElementById('wBody').innerHTML=data.map(c=>`
+    <tr onclick="showD(${c.id})" style="cursor:pointer;">
+      <td><strong>${c.name}</strong></td><td>${c.age||'—'}</td><td>${c.city||'—'}</td>
+      <td>${bdg(c.ptft)}</td><td>${c.tshirt||'—'}</td>
+      <td style="color:${c.allergies?'var(--yellow)':'var(--dim)'}">${c.allergies||'None'}</td>
+      <td style="color:${c.notes?'var(--yellow)':'var(--dim)'};font-size:12px">${c.notes||'—'}</td>
+      <td style="color:var(--dim)">${c.parent||'—'}</td>
+      <td style="color:var(--dim)">${c.phone||'—'}</td>
+    </tr>`).join('');
+  // Mobile
+  document.getElementById('wMobile').innerHTML=data.map(c=>`
+    <div class="m-card" onclick="showD(${c.id})">
+      <div class="m-card-arrow">›</div>
+      <div class="m-card-name">${c.name}</div>
+      <div class="m-card-row">
+        ${bdg(c.ptft)}
+        ${c.age?`<span class="m-card-detail">Age ${c.age}</span>`:''}
+        ${c.city?`<span class="m-card-detail">${c.city}</span>`:''}
+        ${c.tshirt?`<span class="m-card-detail">&#128248; ${c.tshirt}</span>`:''}
+      </div>
+      ${c.allergies?`<div class="m-card-alert">&#128680; ${c.allergies}${c.notes?' &mdash; '+c.notes:''}</div>`:''}
+      ${!c.allergies&&c.notes?`<div class="m-card-alert">&#128203; ${c.notes}</div>`:''}
+      <div style="font-size:12px;color:var(--dim);margin-top:6px">${c.parent||''} ${c.phone?'&middot; '+c.phone:''}</div>
+    </div>`).join('');
+}
+
+// ── Allergies ──────────────────────────────────────────────
+function renderAllergies() {
+  const d=en().filter(c=>(c.allergies&&c.allergies.trim())||(c.notes&&c.notes.trim())).sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('algList').innerHTML=`<div class="cb" style="margin-bottom:14px;"><span>${d.length}</span> campers with medical flags</div>`+
+    d.map(c=>`
+      <div class="m-card" onclick="showD(${c.id})">
+        <div class="m-card-arrow">›</div>
+        <div class="m-card-name">${c.name}</div>
+        <div class="m-card-row">${c.age?`<span class="m-card-detail">Age ${c.age}</span>`:''} ${c.city?`<span class="m-card-detail">${c.city}</span>`:''}</div>
+        ${c.allergies?`<div class="m-card-alert">&#128680; <strong>ALLERGY:</strong> ${c.allergies}</div>`:''}
+        ${c.notes?`<div class="m-card-alert" style="border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.1);color:#93c5fd;margin-top:4px">&#128203; ${c.notes}</div>`:''}
+        <div style="font-size:12px;color:var(--dim);margin-top:6px">${c.parent||''} ${c.phone?'&middot; '+c.phone:''} ${c.email?'&middot; '+c.email:''}</div>
+      </div>`).join('');
+}
+
+// ── Pipeline ───────────────────────────────────────────────
+function renderPipeline() {
+  const d=ld().sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('pipList').innerHTML=`<div class="cb" style="margin-bottom:14px;"><span>${d.length}</span> leads</div>`+
+    d.map(c=>`<div class="pcard" onclick="showD(${c.id})">
+      <div style="font-weight:600;font-size:15px">${c.name}</div>
+      <div style="color:var(--dim);font-size:13px;margin-top:4px">${c.paid==='no'?'Not paid &middot; ':''} Awaiting registration</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${c.parent||'No contact'} ${c.phone?' &middot; '+c.phone:''}</div>
+    </div>`).join('');
+}
+
+// ── Comps ──────────────────────────────────────────────────
+function renderComps() {
+  const c8=comps.filter(c=>c.status==='comp');
+  const u3=comps.filter(c=>c.status==='unregistered');
+  document.getElementById('cmpList').innerHTML=`
+    <div class="ct" style="margin-bottom:10px">Approved Comps (${c8.length})</div>
+    ${c8.map(c=>`<div class="pcard" style="border-left-color:var(--yellow)">
+      <div style="font-weight:600;font-size:15px">${c.name}</div>
+      <div style="font-size:13px;color:var(--dim)">Age ${c.age||'?'} &middot; ${c.city||'?'}${c.allergies&&c.allergies!=='No'?' &middot; <span style="color:var(--yellow)">&#9888; '+c.allergies+'</span>':''}</div>
+      <div style="font-size:12px;color:var(--muted)">${c.parent||''} &middot; ${c.phone||''}</div>
+    </div>`).join('')}
+    <div class="ct" style="margin:18px 0 10px">Likely Coming (${u3.length})</div>
+    ${u3.map(c=>`<div class="pcard" style="border-left-color:var(--muted)">
+      <div style="font-weight:600;font-size:15px">${c.name}</div>
+      <div style="font-size:13px;color:var(--dim)">Age ${c.age||'?'} &middot; ${c.city||'?'} &middot; Weeks: ${c.weeks||'?'}</div>
+      <div style="font-size:12px;color:var(--muted)">${c.parent||''} &middot; ${c.phone||''}</div>
+    </div>`).join('')}`;
+}
+
+// ── Modal: View ────────────────────────────────────────────
+function showD(id) {
+  const c=campers.find(x=>x.id===id);if(!c)return;
+  document.getElementById('mTitle').textContent=c.name;
+  document.getElementById('mBody').innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="btn bo" onclick="switchEdit(${id})" style="font-size:13px;padding:8px 16px;">&#9998; Edit</button>
+      <button class="btn bdel" onclick="deleteCamper(${id})" style="font-size:13px;padding:8px 16px;">&#128465; Delete</button>
+    </div>
+    <div class="dr"><div class="dk">Status</div><div>${bdg(c.status)}</div></div>
+    <div class="dr"><div class="dk">Type</div><div>${c.ptft?bdg(c.ptft):'—'}</div></div>
+    <div class="dr"><div class="dk">Age</div><div>${c.age||'—'}</div></div>
+    <div class="dr"><div class="dk">City</div><div>${c.city||'—'}</div></div>
+    <div class="dr"><div class="dk">Sex</div><div>${c.sex||'—'}</div></div>
+    <div class="dr"><div class="dk">Paid</div><div>${bdg(c.paid)}</div></div>
+    <div class="dr"><div class="dk">Enrollment</div><div>${bdg(c.enrollment)}</div></div>
+    <div class="dr"><div class="dk">T-Shirt</div><div>${c.tshirt||'—'}</div></div>
+    <div class="dr"><div class="dk">Parent</div><div>${c.parent||'—'}</div></div>
+    <div class="dr"><div class="dk">Email</div><div>${c.email?`<a href="mailto:${c.email}" style="color:var(--orange)">${c.email}</a>`:'—'}</div></div>
+    <div class="dr"><div class="dk">Phone</div><div>${c.phone?`<a href="tel:${c.phone}" style="color:var(--orange)">${c.phone}</a>`:'—'}</div></div>
+    <div class="dr"><div class="dk">Weeks</div><div><div class="wdots">${dots(c.weeks_arr)}</div></div></div>
+    <div class="dr"><div class="dk">Reg. Date</div><div>${c.reg_date||'—'}</div></div>
+    ${c.allergies?`<div class="dr"><div class="dk">Allergies</div><div style="color:var(--yellow)">${c.allergies}</div></div>`:''}
+    ${c.notes?`<div class="dr"><div class="dk">Medical</div><div style="color:var(--yellow)">${c.notes}</div></div>`:''}
+    ${c.special_notes?`<div class="dr"><div class="dk">Special</div><div>${c.special_notes}</div></div>`:''}
+  `;
+  document.getElementById('mOv').classList.add('open');
+}
+
+// ── Modal: Edit ────────────────────────────────────────────
+function switchEdit(id) {
+  const c=campers.find(x=>x.id===id);if(!c)return;
+  document.getElementById('mTitle').textContent='Edit: '+c.name;
+  const wa=c.weeks_arr||[0,0,0,0,0,0,0,0];
+  const wChecks=wa.map((w,i)=>`<label class="wcb"><input type="checkbox" id="ew${i+1}" ${w?'checked':''}> Wk ${i+1}</label>`).join('');
+  document.getElementById('mBody').innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="btn bo" onclick="saveEdit(${id})" style="font-size:13px;padding:8px 16px;">&#10003; Save</button>
+      <button class="btn bg" onclick="showD(${id})" style="font-size:13px;padding:8px 14px;">Cancel</button>
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label class="fl">Name</label><input class="fi" id="eN" value="${c.name}"></div>
+      <div class="fg"><label class="fl">Age</label><input class="fi" type="number" id="eA" value="${c.age||''}"></div>
+      <div class="fg"><label class="fl">City</label><input class="fi" id="eCi" value="${c.city||''}"></div>
+      <div class="fg"><label class="fl">Sex</label><select class="fo" id="eSx"><option value="">—</option><option value="M" ${c.sex==='M'?'selected':''}>Male</option><option value="F" ${c.sex==='F'?'selected':''}>Female</option></select></div>
+      <div class="fg"><label class="fl">FT / PT</label><select class="fo" id="ePT"><option value="">—</option><option value="FT" ${c.ptft==='FT'?'selected':''}>Full Time</option><option value="PT" ${c.ptft==='PT'?'selected':''}>Part Time</option></select></div>
+      <div class="fg"><label class="fl">Paid?</label><select class="fo" id="ePd"><option value="">—</option><option value="yes" ${c.paid==='yes'?'selected':''}>Yes</option><option value="no" ${c.paid==='no'?'selected':''}>No</option><option value="failed" ${c.paid==='failed'?'selected':''}>Failed</option></select></div>
+      <div class="fg"><label class="fl">Enrollment</label><select class="fo" id="eEn"><option value="">—</option><option value="yes" ${c.enrollment==='yes'?'selected':''}>Yes</option><option value="no" ${c.enrollment==='no'?'selected':''}>No</option><option value="failed" ${c.enrollment==='failed'?'selected':''}>Failed</option></select></div>
+      <div class="fg"><label class="fl">T-Shirt</label><select class="fo" id="eTs">${['','YXS','YS','YM','YL','YXL','AXS','AS','AM','AL','AXL'].map(s=>`<option value="${s}" ${c.tshirt===s?'selected':''}>${s||'—'}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">Parent</label><input class="fi" id="ePr" value="${c.parent||''}"></div>
+      <div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="eEm" value="${c.email||''}"></div>
+      <div class="fg"><label class="fl">Phone</label><input class="fi" type="tel" id="ePh" value="${c.phone||''}"></div>
+      <div class="fg"><label class="fl">Reg. Date</label><input class="fi" type="date" id="eRd" value="${c.reg_date||''}"></div>
+    </div>
+    <div class="fg" style="margin-bottom:10px"><label class="fl">Allergies</label><input class="fi" id="eAl" value="${c.allergies||''}"></div>
+    <div class="fg" style="margin-bottom:10px"><label class="fl">Medical Notes</label><textarea class="fta" id="eNo">${c.notes||''}</textarea></div>
+    <div class="fg" style="margin-bottom:10px"><label class="fl">Special Notes</label><textarea class="fta" id="eSp">${c.special_notes||''}</textarea></div>
+    <div class="fg" style="margin-bottom:14px"><label class="fl">Weeks</label><div class="wcbs" style="margin-top:6px">${wChecks}</div></div>
+    <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border)">
+      <button class="btn bo" onclick="saveEdit(${id})" style="font-size:13px;padding:8px 16px;">&#10003; Save Changes</button>
+      <button class="btn bg" onclick="showD(${id})" style="font-size:13px;padding:8px 14px;">Cancel</button>
+    </div>`;
+}
+
+async function saveEdit(id) {
+  const wa=Array.from({length:8},(_,i)=>{const cb=document.getElementById('ew'+(i+1));return cb&&cb.checked?1:0;});
+  const ptft=document.getElementById('ePT').value;
+  const body={
+    name:document.getElementById('eN').value.trim(), age:parseInt(document.getElementById('eA').value)||0,
+    city:document.getElementById('eCi').value.trim(), sex:document.getElementById('eSx').value,
+    ptft, paid:document.getElementById('ePd').value, enrollment:document.getElementById('eEn').value,
+    tshirt:document.getElementById('eTs').value, parent:document.getElementById('ePr').value.trim(),
+    email:document.getElementById('eEm').value.trim(), phone:document.getElementById('ePh').value.trim(),
+    reg_date:document.getElementById('eRd').value, allergies:document.getElementById('eAl').value.trim(),
+    notes:document.getElementById('eNo').value.trim(), special_notes:document.getElementById('eSp').value.trim(),
+    weeks:wa.map((w,i)=>w?i+1:'').filter(Boolean).join(','), weeks_arr:wa,
+  };
+  try {
+    const res=await fetch('/api/campers/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok)throw new Error(await res.text());
+    const updated=await res.json();
+    const idx=campers.findIndex(x=>x.id===id);
+    if(idx>-1)campers[idx]=updated;
+    showToast('✓ Saved!');
+    showD(id);
+    refreshAll();
+  } catch(e) { showToast('Save failed: '+e.message, false); }
+}
+
+// ── Delete ─────────────────────────────────────────────────
+async function deleteCamper(id) {
+  const c=campers.find(x=>x.id===id);
+  if(!confirm(`Delete ${c?.name}? Cannot be undone.`))return;
+  try {
+    await fetch('/api/campers/'+id,{method:'DELETE'});
+    campers=campers.filter(x=>x.id!==id);
+    closeModD(); showToast('Deleted.'); refreshAll();
+  } catch(e) { showToast('Delete failed.', false); }
+}
+
+// ── Add ────────────────────────────────────────────────────
+function togAll(cb,prefix){for(let i=1;i<=8;i++)document.getElementById(prefix+i).checked=cb.checked;}
+
+async function submitAdd() {
+  const name=document.getElementById('aN').value.trim();
+  if(!name){showToast('Name is required.',false);return;}
+  const wa=Array.from({length:8},(_,i)=>document.getElementById('aw'+(i+1)).checked?1:0);
+  const ptft=document.getElementById('aPT').value;
+  const body={
+    name, age:parseInt(document.getElementById('aA').value)||0,
+    city:document.getElementById('aCi').value.trim(), sex:document.getElementById('aSx').value,
+    ptft, paid:document.getElementById('aPd').value, enrollment:document.getElementById('aEn').value,
+    tshirt:document.getElementById('aTs').value, parent:document.getElementById('aPr').value.trim(),
+    email:document.getElementById('aEm').value.trim(), phone:document.getElementById('aPh').value.trim(),
+    allergies:document.getElementById('aAl').value.trim(), notes:document.getElementById('aNo').value.trim(),
+    weeks:wa.map((w,i)=>w?i+1:'').filter(Boolean).join(','), weeks_arr:wa,
+    reg_date:new Date().toISOString().slice(0,10),
+  };
+  try {
+    const res=await fetch('/api/campers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok)throw new Error(await res.text());
+    const newC=await res.json();
+    campers.push(newC);
+    ['aN','aA','aCi','aPr','aEm','aPh','aAl','aNo'].forEach(id=>document.getElementById(id).value='');
+    ['aSx','aPT','aPd','aEn','aTs'].forEach(id=>document.getElementById(id).value='');
+    for(let i=1;i<=8;i++)document.getElementById('aw'+i).checked=false;
+    document.getElementById('awA').checked=false;
+    showToast('✓ '+name+' added!');
+    refreshAll();
+  } catch(e) { showToast('Add failed: '+e.message, false); }
+}
+
+function refreshAll(){renderDashboard();renderRoster();renderActions();showWk(currentWk);renderAllergies();renderPipeline();}
+function closeMod(e){if(e.target===document.getElementById('mOv'))closeModD();}
+function closeModD(){document.getElementById('mOv').classList.remove('open');}
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Summer Haus 2026 — Login</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0a0a;color:#f0f0f0;font-family:'Barlow',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.card{background:#111;border:1px solid #252525;border-top:3px solid #F5620F;border-radius:8px;padding:40px;width:100%;max-width:400px;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;}
+.logo span{color:#F5620F;}
+.sub{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:#666;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:32px;}
+.lbl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:6px;display:block;}
+input{width:100%;background:#0a0a0a;border:1px solid #333;border-radius:4px;color:#f0f0f0;padding:12px 14px;font-family:'Barlow',sans-serif;font-size:15px;outline:none;margin-bottom:16px;}
+input:focus{border-color:#F5620F;}
+button{width:100%;background:#F5620F;color:#000;border:none;border-radius:4px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-top:4px;}
+button:hover{background:#c04d0b;}
+.err{background:rgba(239,68,68,.15);border:1px solid #ef4444;border-radius:4px;padding:10px 14px;color:#ef4444;font-size:13px;margin-bottom:16px;font-family:'Barlow Condensed',sans-serif;display:none;}
+.lock{font-size:40px;margin-bottom:20px;opacity:.3;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="lock">&#128274;</div>
+  <div class="logo"><span>Haus</span> of Athletes</div>
+  <div class="sub">Summer Haus 2026</div>
+  <div class="err" id="errMsg">&#10005;&nbsp; Incorrect username or password</div>
+  <form method="POST" action="/login">
+    <label class="lbl">Username</label>
+    <input type="text" name="username" placeholder="Enter username" autocomplete="username" required autofocus>
+    <label class="lbl">Password</label>
+    <input type="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
+    <button type="submit">Sign In &#8594;</button>
+  </form>
+</div>
+<script>
+  if (window.location.search.includes('error=1')) {
+    document.getElementById('errMsg').style.display = 'block';
+  }
+</script>
+</body>
+</html>
