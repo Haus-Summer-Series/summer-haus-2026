@@ -1,4 +1,5 @@
 console.log("SERVER FILE STARTED");
+console.log("RUNNING THIS SERVER FILE:", __filename);
 const express  = require('express');
 const Database = require('better-sqlite3');
 const session  = require('express-session');
