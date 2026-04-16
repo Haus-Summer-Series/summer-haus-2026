@@ -214,7 +214,7 @@ app.get('/api/stats', (req, res) => {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`\n🏋️  Summer Haus 2026 → http://localhost:${PORT}`);
   console.log(`   Logins: bren / haus2026  |  staff / summer26`);
   console.log(`   (Change via ADMIN_USER, ADMIN_PASS, STAFF_USER, STAFF_PASS env vars)\n`);
