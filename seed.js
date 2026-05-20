@@ -1,84 +1,84 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const db = new Database(path.join(__dirname, 'camp.db'));
-db.pragma('journal_mode = WAL');
+const { Pool } = require('pg');
 
-// Create tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS campers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    ptft TEXT DEFAULT '',
-    paid TEXT DEFAULT '',
-    enrollment TEXT DEFAULT '',
-    parent TEXT DEFAULT '',
-    email TEXT DEFAULT '',
-    phone TEXT DEFAULT '',
-    age INTEGER DEFAULT 0,
-    city TEXT DEFAULT '',
-    sex TEXT DEFAULT '',
-    allergies TEXT DEFAULT '',
-    tshirt TEXT DEFAULT '',
-    notes TEXT DEFAULT '',
-    special_notes TEXT DEFAULT '',
-    weeks TEXT DEFAULT '',
-    week1 INTEGER DEFAULT 0,
-    week2 INTEGER DEFAULT 0,
-    week3 INTEGER DEFAULT 0,
-    week4 INTEGER DEFAULT 0,
-    week5 INTEGER DEFAULT 0,
-    week6 INTEGER DEFAULT 0,
-    week7 INTEGER DEFAULT 0,
-    week8 INTEGER DEFAULT 0,
-    reg_date TEXT DEFAULT '',
-    status TEXT DEFAULT 'lead',
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  );
-  CREATE TABLE IF NOT EXISTS comps (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    paid TEXT DEFAULT 'C',
-    parent TEXT DEFAULT '',
-    email TEXT DEFAULT '',
-    phone TEXT DEFAULT '',
-    age INTEGER DEFAULT 0,
-    city TEXT DEFAULT '',
-    sex TEXT DEFAULT '',
-    allergies TEXT DEFAULT '',
-    weeks TEXT DEFAULT '',
-    status TEXT DEFAULT 'comp'
-  );
-`);
-
-const existing = db.prepare('SELECT COUNT(*) as c FROM campers').get().c;
-if (existing > 0) { console.log('Database already seeded (' + existing + ' campers). Skipping.'); process.exit(0); }
-
-console.log('Seeding database with 157 campers...');
-
-const insertCamper = db.prepare(`
-  INSERT INTO campers (name,ptft,paid,enrollment,parent,email,phone,age,city,sex,allergies,tshirt,notes,special_notes,weeks,week1,week2,week3,week4,week5,week6,week7,week8,reg_date,status)
-  VALUES (@name,@ptft,@paid,@enrollment,@parent,@email,@phone,@age,@city,@sex,@allergies,@tshirt,@notes,@special_notes,@weeks,@week1,@week2,@week3,@week4,@week5,@week6,@week7,@week8,@reg_date,@status)
-`);
-
-const seedCampers = db.transaction((rows) => {
-  for (const c of rows) {
-    const wa = c.weeks_arr || [0,0,0,0,0,0,0,0];
-    insertCamper.run({
-      name: c.name, ptft: c.ptft||'', paid: c.paid||'', enrollment: c.enrollment||'',
-      parent: c.parent||'', email: c.email||'', phone: c.phone||'',
-      age: c.age||0, city: c.city||'', sex: c.sex||'',
-      allergies: c.allergies||'', tshirt: c.tshirt||'',
-      notes: c.notes||'', special_notes: c.special_notes||'',
-      weeks: c.weeks||'',
-      week1:wa[0]||0, week2:wa[1]||0, week3:wa[2]||0, week4:wa[3]||0,
-      week5:wa[4]||0, week6:wa[5]||0, week7:wa[6]||0, week8:wa[7]||0,
-      reg_date: c.reg_date||'', status: c.status||'lead'
-    });
-  }
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
-const camperData = [
+async function seed() {
+  // Create tables
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campers (
+      id            SERIAL PRIMARY KEY,
+      name          TEXT NOT NULL,
+      ptft          TEXT DEFAULT '',
+      paid          TEXT DEFAULT '',
+      enrollment    TEXT DEFAULT '',
+      parent        TEXT DEFAULT '',
+      email         TEXT DEFAULT '',
+      phone         TEXT DEFAULT '',
+      age           INTEGER DEFAULT 0,
+      city          TEXT DEFAULT '',
+      sex           TEXT DEFAULT '',
+      allergies     TEXT DEFAULT '',
+      tshirt        TEXT DEFAULT '',
+      notes         TEXT DEFAULT '',
+      special_notes TEXT DEFAULT '',
+      weeks         TEXT DEFAULT '',
+      week1 INTEGER DEFAULT 0, week2 INTEGER DEFAULT 0,
+      week3 INTEGER DEFAULT 0, week4 INTEGER DEFAULT 0,
+      week5 INTEGER DEFAULT 0, week6 INTEGER DEFAULT 0,
+      week7 INTEGER DEFAULT 0, week8 INTEGER DEFAULT 0,
+      reg_date   TEXT DEFAULT '',
+      status     TEXT DEFAULT 'lead',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS comps (
+      id        SERIAL PRIMARY KEY,
+      name      TEXT NOT NULL,
+      paid      TEXT DEFAULT 'C',
+      parent    TEXT DEFAULT '',
+      email     TEXT DEFAULT '',
+      phone     TEXT DEFAULT '',
+      age       INTEGER DEFAULT 0,
+      city      TEXT DEFAULT '',
+      sex       TEXT DEFAULT '',
+      allergies TEXT DEFAULT '',
+      weeks     TEXT DEFAULT '',
+      status    TEXT DEFAULT 'comp'
+    );
+  `);
+
+  const existing = await pool.query('SELECT COUNT(*) as c FROM campers');
+  if (parseInt(existing.rows[0].c) > 0) {
+    console.log('Already seeded (' + existing.rows[0].c + ' campers). Skipping.');
+    await pool.end();
+    return;
+  }
+
+  console.log('Seeding 171 campers...');
+
+  const insertCamper = async (c) => {
+    const wa = c.weeks_arr || [0,0,0,0,0,0,0,0];
+    await pool.query(`
+      INSERT INTO campers
+        (name,ptft,paid,enrollment,parent,email,phone,age,city,sex,
+         allergies,tshirt,notes,special_notes,weeks,
+         week1,week2,week3,week4,week5,week6,week7,week8,reg_date,status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+              $16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+      [c.name||'', c.ptft||'', c.paid||'', c.enrollment||'',
+       c.parent||'', c.email||'', c.phone||'', c.age||0,
+       c.city||'', c.sex||'', c.allergies||'', c.tshirt||'',
+       c.notes||'', c.special_notes||'', c.weeks||'',
+       wa[0]||0,wa[1]||0,wa[2]||0,wa[3]||0,
+       wa[4]||0,wa[5]||0,wa[6]||0,wa[7]||0,
+       c.reg_date||'', c.status||'lead']
+    );
+  };
+
+  const campers = [
   {
     "id": 3,
     "name": "Alana Frazier",
@@ -91,11 +91,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -106,10 +107,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 4,
@@ -123,11 +121,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -138,10 +137,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 5,
@@ -155,11 +151,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -169,11 +166,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 6,
@@ -187,11 +180,12 @@ const camperData = [
     "age": 10,
     "city": "Windham",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-10",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -202,10 +196,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-10",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 7,
@@ -219,11 +210,12 @@ const camperData = [
     "age": 8,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-02-09",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -234,10 +226,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-02-09",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,6,7"
   },
   {
     "id": 8,
@@ -251,11 +240,12 @@ const camperData = [
     "age": 8,
     "city": "Windham",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "amoxicillin",
     "tshirt": "YL",
     "notes": "taking Linzess and Myrbetriq",
-    "weeks": "8",
+    "special_notes": "",
+    "reg_date": "2026-02-04",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -264,12 +254,9 @@ const camperData = [
       0,
       0,
       0,
-      1
+      0
     ],
-    "reg_date": "2026-02-04",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 9,
@@ -283,25 +270,23 @@ const camperData = [
     "age": 13,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "sesame seeds, peanuts",
     "tshirt": "AM",
     "notes": "taking Depakote; autistic",
-    "weeks": "3,4,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-27",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
-      1,
-      1,
       0,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-27",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 10,
@@ -315,11 +300,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -329,11 +315,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 11,
@@ -347,11 +329,12 @@ const camperData = [
     "age": 11,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,3,4,5,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-10",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
@@ -362,10 +345,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-03-10",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,3,4,5,7,8"
   },
   {
     "id": 12,
@@ -379,11 +359,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -393,11 +374,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 13,
@@ -411,11 +388,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -425,11 +403,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 14,
@@ -443,11 +417,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -458,10 +433,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 15,
@@ -475,11 +447,12 @@ const camperData = [
     "age": 5,
     "city": "Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3",
+    "special_notes": "",
+    "reg_date": "2026-01-14",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -490,10 +463,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-14",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3"
   },
   {
     "id": 16,
@@ -507,11 +477,12 @@ const camperData = [
     "age": 10,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,8",
+    "special_notes": "",
+    "reg_date": "2026-01-19",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
@@ -522,10 +493,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-19",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,8"
   },
   {
     "id": 17,
@@ -539,11 +507,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -553,11 +522,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 18,
@@ -571,11 +536,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -586,10 +552,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 19,
@@ -603,11 +566,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -618,10 +582,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 20,
@@ -635,25 +596,23 @@ const camperData = [
     "age": 8,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2,3,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-19",
+    "status": "enrolled",
     "weeks_arr": [
       0,
-      1,
-      1,
       0,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-03-19",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 21,
@@ -667,11 +626,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -682,10 +642,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 22,
@@ -699,11 +656,12 @@ const camperData = [
     "age": 13,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YXL",
     "notes": "",
-    "weeks": "3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-03-16",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -714,10 +672,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-03-16",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,6,7"
   },
   {
     "id": 23,
@@ -731,25 +686,23 @@ const camperData = [
     "age": 0,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "seasonal",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,5",
+    "special_notes": "",
+    "reg_date": "2026-02-09",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
       0,
       0,
-      1,
+      0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-02-09",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1"
   },
   {
     "id": 24,
@@ -763,11 +716,12 @@ const camperData = [
     "age": 6,
     "city": "Windham",
     "sex": "M",
-    "wr": "",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -778,10 +732,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 25,
@@ -795,11 +746,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -810,10 +762,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 26,
@@ -827,11 +776,12 @@ const camperData = [
     "age": 0,
     "city": "Haverhill",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-28",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -842,10 +792,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-28",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 27,
@@ -859,11 +806,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -873,11 +821,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 28,
@@ -891,25 +835,23 @@ const camperData = [
     "age": 11,
     "city": "Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "red dye",
     "tshirt": "AS",
     "notes": "taking focalin for ADHD and prozac for anxiety",
-    "weeks": "2,3,4,5,6",
+    "special_notes": "",
+    "reg_date": "2026-03-18",
+    "status": "enrolled",
     "weeks_arr": [
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
+      0,
+      0,
+      0,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-03-18",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 29,
@@ -923,11 +865,12 @@ const camperData = [
     "age": 8,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-14",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -938,10 +881,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-14",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 30,
@@ -955,25 +895,23 @@ const camperData = [
     "age": 7,
     "city": "Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "bandaid adhesive",
     "tshirt": "YL",
-    "notes": "(use gauze + medical tape) instead of bandaids; mild asthma",
-    "weeks": "5,6",
+    "notes": "use gauze + medical tape instead of bandaids; mild asthma",
+    "special_notes": "",
+    "reg_date": "2026-03-18",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-03-18",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 31,
@@ -987,11 +925,12 @@ const camperData = [
     "age": 8,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "environmental",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,3,6",
+    "special_notes": "",
+    "reg_date": "2026-02-03",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
@@ -1002,10 +941,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-02-03",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,3,6"
   },
   {
     "id": 32,
@@ -1019,11 +955,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1034,10 +971,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 33,
@@ -1051,11 +985,12 @@ const camperData = [
     "age": 8,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,8",
+    "special_notes": "",
+    "reg_date": "2026-01-19",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
@@ -1066,10 +1001,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-19",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,8"
   },
   {
     "id": 34,
@@ -1083,25 +1015,23 @@ const camperData = [
     "age": 10,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AM",
     "notes": "",
-    "weeks": "1,2,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-17",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
       0,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-17",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 35,
@@ -1115,11 +1045,12 @@ const camperData = [
     "age": 7,
     "city": "Haverhill",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3",
+    "special_notes": "",
+    "reg_date": "2026-02-08",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1130,10 +1061,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-02-08",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3"
   },
   {
     "id": 36,
@@ -1147,11 +1075,12 @@ const camperData = [
     "age": 10,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-03-16",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1162,10 +1091,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-03-16",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,6,7"
   },
   {
     "id": 37,
@@ -1179,25 +1105,23 @@ const camperData = [
     "age": 13,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AL",
     "notes": "",
-    "weeks": "1,2,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-17",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
       0,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-17",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 38,
@@ -1211,11 +1135,12 @@ const camperData = [
     "age": 9,
     "city": "Salem",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,3,5,7",
+    "special_notes": "",
+    "reg_date": "2026-01-30",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
@@ -1226,10 +1151,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-01-30",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,3,5,7"
   },
   {
     "id": 39,
@@ -1243,11 +1165,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1258,10 +1181,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 40,
@@ -1275,11 +1195,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1289,11 +1210,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 41,
@@ -1307,25 +1224,22 @@ const camperData = [
     "age": 10,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,5,6,7,8",
-    "weeks_arr": [
-      1,
-      1,
-      1,
-      0,
-      1,
-      1,
-      1,
-      1
-    ],
-    "reg_date": "2026-02-05",
     "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "reg_date": "2026-02-05",
+    "status": "enrolled",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": 42,
@@ -1339,25 +1253,23 @@ const camperData = [
     "age": 9,
     "city": "Tewksbury",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-22",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
       0,
       0,
-      1,
-      1,
       0,
-      1
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-22",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 43,
@@ -1371,25 +1283,23 @@ const camperData = [
     "age": 10,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YXL",
     "notes": "",
-    "weeks": "3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-02-26",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-02-26",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 44,
@@ -1403,11 +1313,12 @@ const camperData = [
     "age": 8,
     "city": "Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3",
+    "special_notes": "",
+    "reg_date": "2026-01-14",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1418,10 +1329,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-14",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3"
   },
   {
     "id": 45,
@@ -1435,11 +1343,12 @@ const camperData = [
     "age": 7,
     "city": "Haverhill",
     "sex": "M",
-    "wr": "W & R",
-    "allergies": "cherries,penicillin",
+    "allergies": "cherries, penicillin",
     "tshirt": "YS",
     "notes": "takes zyrtec as needed for hives",
-    "weeks": "1,2,3,4,6",
+    "special_notes": "",
+    "reg_date": "2026-01-31",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -1450,10 +1359,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-31",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,6"
   },
   {
     "id": 46,
@@ -1467,11 +1373,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1482,10 +1389,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 47,
@@ -1499,11 +1403,12 @@ const camperData = [
     "age": 6,
     "city": "Windham",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "pollen",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2",
+    "special_notes": "authorized pickup: Jen & Chris Plourde, Karen Iworsky, Doug & Katy Early",
+    "reg_date": "2026-01-15",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -1514,10 +1419,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-15",
-    "special_notes": "authorized pickup: Jen and Chris Plourde, Karen Iworsky, Doug and Katy Early",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 48,
@@ -1531,25 +1433,23 @@ const camperData = [
     "age": 13,
     "city": "Melrose",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AS",
     "notes": "",
-    "weeks": "5,6",
+    "special_notes": "",
+    "reg_date": "2026-02-03",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-02-03",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 49,
@@ -1563,11 +1463,12 @@ const camperData = [
     "age": 9,
     "city": "Dracut",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "3,4,5",
+    "special_notes": "",
+    "reg_date": "2026-03-05",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1578,10 +1479,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-03-05",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,5"
   },
   {
     "id": 50,
@@ -1595,11 +1493,12 @@ const camperData = [
     "age": 7,
     "city": "Dracut",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,4,5",
+    "special_notes": "",
+    "reg_date": "2026-03-05",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1610,10 +1509,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-03-05",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,5"
   },
   {
     "id": 51,
@@ -1627,25 +1523,23 @@ const camperData = [
     "age": 0,
     "city": "Methuen",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "5,8",
+    "special_notes": "",
+    "reg_date": "2026-01-30",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
-      1,
       0,
       0,
-      1
+      0,
+      0
     ],
-    "reg_date": "2026-01-30",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 52,
@@ -1659,11 +1553,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1674,10 +1569,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 53,
@@ -1691,11 +1583,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1706,10 +1599,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 54,
@@ -1723,25 +1613,23 @@ const camperData = [
     "age": 11,
     "city": "Melrose",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "5,6",
+    "special_notes": "",
+    "reg_date": "2026-02-03",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-02-03",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 55,
@@ -1755,25 +1643,23 @@ const camperData = [
     "age": 10,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-12",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-01-12",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 56,
@@ -1787,25 +1673,23 @@ const camperData = [
     "age": 8,
     "city": "Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "5",
+    "special_notes": "",
+    "reg_date": "2026-01-30",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
-      1,
+      0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-01-30",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 57,
@@ -1819,11 +1703,12 @@ const camperData = [
     "age": 0,
     "city": "Haverhill",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AS",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-28",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -1834,10 +1719,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-28",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 58,
@@ -1851,11 +1733,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1866,10 +1749,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 59,
@@ -1883,11 +1763,12 @@ const camperData = [
     "age": 6,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,6",
+    "special_notes": "",
+    "reg_date": "2026-01-07",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -1898,10 +1779,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-07",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,6"
   },
   {
     "id": 60,
@@ -1915,11 +1793,12 @@ const camperData = [
     "age": 5,
     "city": "Windham",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "8",
+    "special_notes": "",
+    "reg_date": "2026-02-04",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -1928,12 +1807,9 @@ const camperData = [
       0,
       0,
       0,
-      1
+      0
     ],
-    "reg_date": "2026-02-04",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 61,
@@ -1947,11 +1823,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -1961,11 +1838,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "lead"
+    ]
   },
   {
     "id": 62,
@@ -1979,25 +1852,23 @@ const camperData = [
     "age": 6,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-13",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-03-13",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 63,
@@ -2011,11 +1882,12 @@ const camperData = [
     "age": 6,
     "city": "Hampstead",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-04-02",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2026,10 +1898,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-04-02",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 64,
@@ -2043,11 +1912,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2057,11 +1927,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 65,
@@ -2075,25 +1941,23 @@ const camperData = [
     "age": 8,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "amoxicillin",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-02-04",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
+      0,
       1,
       1,
       1,
       1,
       1
     ],
-    "reg_date": "2026-02-04",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,2,4,5,6,7,8"
   },
   {
     "id": 66,
@@ -2107,11 +1971,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2121,11 +1986,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "lead"
+    ]
   },
   {
     "id": 67,
@@ -2139,11 +2000,12 @@ const camperData = [
     "age": 9,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2,3,4,5,8",
+    "special_notes": "",
+    "reg_date": "2026-01-17",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -2154,10 +2016,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-17",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2,3,4,5,8"
   },
   {
     "id": 68,
@@ -2171,11 +2030,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2186,10 +2046,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 69,
@@ -2203,11 +2060,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2218,10 +2076,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 70,
@@ -2235,25 +2090,23 @@ const camperData = [
     "age": 6,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,4,5,6",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
       0,
-      1,
-      1,
-      1,
+      0,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 71,
@@ -2267,25 +2120,23 @@ const camperData = [
     "age": 0,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-26",
+    "status": "enrolled",
     "weeks_arr": [
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-26",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 72,
@@ -2299,11 +2150,12 @@ const camperData = [
     "age": 0,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "cashews, pistachios",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2,3,4,5,8",
+    "special_notes": "",
+    "reg_date": "2026-01-17",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -2314,10 +2166,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-17",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2,3,4,5,8"
   },
   {
     "id": 73,
@@ -2331,11 +2180,12 @@ const camperData = [
     "age": 7,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-30",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2346,10 +2196,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-30",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 74,
@@ -2363,11 +2210,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2377,11 +2225,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 75,
@@ -2395,11 +2239,12 @@ const camperData = [
     "age": 7,
     "city": "Haverhill",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3,4,5,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-25",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -2410,10 +2255,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-01-25",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,5,6,7"
   },
   {
     "id": 76,
@@ -2427,25 +2269,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-16",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-01-16",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 77,
@@ -2459,25 +2299,23 @@ const camperData = [
     "age": 8,
     "city": "Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "apples",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3",
+    "special_notes": "",
+    "reg_date": "2026-01-15",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
+      0,
       0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-01-15",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 78,
@@ -2491,11 +2329,12 @@ const camperData = [
     "age": 11,
     "city": "Methuen",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "7",
+    "special_notes": "",
+    "reg_date": "2026-01-29",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -2503,13 +2342,10 @@ const camperData = [
       0,
       0,
       0,
-      1,
+      0,
       0
     ],
-    "reg_date": "2026-01-29",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 79,
@@ -2523,25 +2359,23 @@ const camperData = [
     "age": 5,
     "city": "Lawrence",
     "sex": "F",
-    "wr": "R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "4,5",
+    "special_notes": "",
+    "reg_date": "2026-03-16",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-03-16",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 80,
@@ -2555,25 +2389,23 @@ const camperData = [
     "age": 0,
     "city": "Methuen",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2,5,8",
+    "special_notes": "",
+    "reg_date": "2026-01-28",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
       0,
       0,
-      1,
       0,
       0,
-      1
+      0,
+      0
     ],
-    "reg_date": "2026-01-28",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 81,
@@ -2587,11 +2419,12 @@ const camperData = [
     "age": 7,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2",
+    "special_notes": "",
+    "reg_date": "2026-03-19",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -2602,10 +2435,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-03-19",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 82,
@@ -2619,11 +2449,12 @@ const camperData = [
     "age": 6,
     "city": "Haverhill",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-09",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2634,10 +2465,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-09",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 83,
@@ -2651,11 +2479,12 @@ const camperData = [
     "age": 11,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "dogs, cats, birch",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,4,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-29",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -2666,10 +2495,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-29",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,5,6,8"
   },
   {
     "id": 84,
@@ -2683,11 +2509,12 @@ const camperData = [
     "age": 7,
     "city": "Windham",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "pollen",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2",
+    "special_notes": "authorized pickup: Jen & Chris Plourde, Karen Iworsky, Doug & Katy Early",
+    "reg_date": "2026-01-15",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -2698,10 +2525,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-15",
-    "special_notes": "authorized pickup: Jen and Chris Plourde, Karen Iworsky, Doug and Katy Early",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 85,
@@ -2715,11 +2539,12 @@ const camperData = [
     "age": 0,
     "city": "Methuen",
     "sex": "M",
-    "wr": "R",
     "allergies": "seasonal allergy",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-20",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2730,10 +2555,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-01-20",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7"
   },
   {
     "id": 86,
@@ -2747,11 +2569,12 @@ const camperData = [
     "age": 9,
     "city": "Haverhill",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,4,5,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-25",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
@@ -2762,10 +2585,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-01-25",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "3,4,5,6,7"
   },
   {
     "id": 87,
@@ -2779,11 +2599,12 @@ const camperData = [
     "age": 7,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-28",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2794,10 +2615,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-28",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,8"
   },
   {
     "id": 88,
@@ -2811,25 +2629,23 @@ const camperData = [
     "age": 10,
     "city": "Lawrence",
     "sex": "F",
-    "wr": "R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "4,5",
+    "special_notes": "",
+    "reg_date": "2026-03-16",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-03-16",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 89,
@@ -2843,11 +2659,12 @@ const camperData = [
     "age": 7,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "environmental",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-14",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2858,10 +2675,7 @@ const camperData = [
       1,
       1
     ],
-    "reg_date": "2026-01-14",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 90,
@@ -2875,11 +2689,12 @@ const camperData = [
     "age": 8,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-28",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -2890,10 +2705,7 @@ const camperData = [
       0,
       1
     ],
-    "reg_date": "2026-01-28",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6,8"
   },
   {
     "id": 91,
@@ -2907,11 +2719,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2921,11 +2734,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "lead"
+    ]
   },
   {
     "id": 92,
@@ -2939,11 +2748,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -2954,10 +2764,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 93,
@@ -2971,25 +2778,23 @@ const camperData = [
     "age": 0,
     "city": "Tewksbury",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "peanuts",
     "tshirt": "YL",
     "notes": "takes ADHD meds",
-    "weeks": "1,2,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-23",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
       0,
       0,
-      1,
-      1,
       0,
-      1
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-23",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 94,
@@ -3003,11 +2808,12 @@ const camperData = [
     "age": 11,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,2,3,4,5,6",
+    "special_notes": "",
+    "reg_date": "2026-02-07",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -3018,10 +2824,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-02-07",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,5,6"
   },
   {
     "id": 95,
@@ -3035,25 +2838,23 @@ const camperData = [
     "age": 13,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,2,3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-17",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
       0,
-      1,
-      1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-01-17",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 96,
@@ -3067,25 +2868,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "M",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
-    "weeks_arr": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "reg_date": "",
     "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "reg_date": "",
+    "status": "enrolled",
+    "weeks_arr": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 97,
@@ -3099,30 +2898,28 @@ const camperData = [
     "age": 9,
     "city": "Lawrence",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "adderall",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-31",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-03-31",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 98,
     "name": "Leo Oullette",
-    "ptft": "",
+    "ptft": "PT",
     "paid": "",
     "enrollment": "",
     "parent": "",
@@ -3131,25 +2928,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
-      0,
-      0,
-      0,
-      0,
-      0,
+      1,
+      1,
+      1,
+      1,
+      1,
       0,
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": "1,2,3,4,5"
   },
   {
     "id": 99,
@@ -3163,11 +2958,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3177,11 +2973,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 100,
@@ -3195,25 +2987,23 @@ const camperData = [
     "age": 10,
     "city": "Dracut",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "takes guanfacine and clonidine for ADHD",
-    "weeks": "1,3,5,7",
+    "special_notes": "",
+    "reg_date": "2026-02-15",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
-      1,
       0,
-      1,
       0,
-      1,
+      0,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-02-15",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1"
   },
   {
     "id": 101,
@@ -3227,25 +3017,23 @@ const camperData = [
     "age": 11,
     "city": "Hampstead",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AS",
     "notes": "takes guanfacine for ADHD; level 1 autistic",
-    "weeks": "1,2,3,5,6,7,8",
-    "weeks_arr": [
-      1,
-      1,
-      1,
-      0,
-      1,
-      1,
-      1,
-      1
-    ],
-    "reg_date": "2026-02-04",
     "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "reg_date": "2026-02-04",
+    "status": "enrolled",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": ""
   },
   {
     "id": 102,
@@ -3259,25 +3047,23 @@ const camperData = [
     "age": 7,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3,6",
+    "special_notes": "",
+    "reg_date": "2026-01-24",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
       0,
       0,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-24",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 103,
@@ -3291,25 +3077,23 @@ const camperData = [
     "age": 10,
     "city": "Windham",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YXL",
     "notes": "",
-    "weeks": "3,4,?",
+    "special_notes": "",
+    "reg_date": "2026-01-27",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
       0,
       0,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-27",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 104,
@@ -3323,25 +3107,23 @@ const camperData = [
     "age": 6,
     "city": "Lawrence",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "pet fur, dogs, cats",
     "tshirt": "YM",
     "notes": "claritan",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-31",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-03-31",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 105,
@@ -3355,25 +3137,23 @@ const camperData = [
     "age": 5,
     "city": "Lawrence",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YXS",
     "notes": "albuterol inhaler as needed",
-    "weeks": "1,2,3,4,5,6,7,8",
-    "weeks_arr": [
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
-    ],
+    "special_notes": "Not paid as of W1",
     "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "status": "enrolled",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": ""
   },
   {
     "id": 106,
@@ -3387,11 +3167,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3402,10 +3183,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 107,
@@ -3419,11 +3197,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3434,10 +3213,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 108,
@@ -3451,11 +3227,12 @@ const camperData = [
     "age": 6,
     "city": "Atkinson",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -3466,10 +3243,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 109,
@@ -3483,25 +3257,23 @@ const camperData = [
     "age": 5,
     "city": "Dracut",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,3,5,7",
+    "special_notes": "",
+    "reg_date": "2026-02-15",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
-      1,
       0,
-      1,
       0,
-      1,
+      0,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-02-15",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1"
   },
   {
     "id": 110,
@@ -3515,25 +3287,23 @@ const camperData = [
     "age": 12,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AM",
     "notes": "",
-    "weeks": "3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-02-26",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-02-26",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 111,
@@ -3547,25 +3317,23 @@ const camperData = [
     "age": 5,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,6",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
       0,
       0,
       0,
-      1,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 112,
@@ -3579,25 +3347,23 @@ const camperData = [
     "age": 8,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,6",
+    "special_notes": "",
+    "reg_date": "2026-01-19",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
       0,
       0,
       0,
-      1,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-19",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1"
   },
   {
     "id": 113,
@@ -3611,11 +3377,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3625,11 +3392,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 114,
@@ -3643,25 +3406,23 @@ const camperData = [
     "age": 6,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "amoxicillin",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,5,6",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
       0,
-      1,
-      1,
+      0,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 115,
@@ -3675,25 +3436,23 @@ const camperData = [
     "age": 11,
     "city": "Methuen",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AM",
     "notes": "",
-    "weeks": "3,4,5,6,8",
+    "special_notes": "",
+    "reg_date": "2026-01-27",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
-      1,
-      1,
       0,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-27",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 116,
@@ -3707,11 +3466,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3721,11 +3481,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 117,
@@ -3739,11 +3495,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3753,16 +3510,12 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 118,
     "name": "Mila Jordan",
-    "ptft": "",
+    "ptft": "PT",
     "paid": "",
     "enrollment": "",
     "parent": "",
@@ -3771,25 +3524,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
+      1,
       0,
+      1,
       0,
+      1,
       0,
-      0,
-      0,
-      0,
-      0,
+      1,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": "1,3,5,7"
   },
   {
     "id": 119,
@@ -3803,11 +3554,12 @@ const camperData = [
     "age": 9,
     "city": "Atkinson",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "2",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
@@ -3818,10 +3570,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 120,
@@ -3835,11 +3584,12 @@ const camperData = [
     "age": 10,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "mom is medical director",
-    "weeks": "1,2,3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-08",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -3850,10 +3600,7 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-01-08",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,6,7"
   },
   {
     "id": 121,
@@ -3867,11 +3614,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3881,16 +3629,12 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 122,
     "name": "Noah Bretas",
-    "ptft": "",
+    "ptft": "PT",
     "paid": "",
     "enrollment": "",
     "parent": "",
@@ -3899,25 +3643,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
-    "weeks_arr": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ],
-    "reg_date": "",
     "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "reg_date": "",
+    "status": "enrolled",
+    "weeks_arr": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "weeks": "1,2,3,4,5,6,7,8"
   },
   {
     "id": 123,
@@ -3931,11 +3673,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -3946,10 +3689,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 124,
@@ -3963,14 +3703,15 @@ const camperData = [
     "age": 10,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "taking fluoxetine",
-    "weeks": "2",
+    "special_notes": "",
+    "reg_date": "2026-03-19",
+    "status": "enrolled",
     "weeks_arr": [
       0,
-      1,
+      0,
       0,
       0,
       0,
@@ -3978,10 +3719,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-03-19",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 125,
@@ -3995,25 +3733,23 @@ const camperData = [
     "age": 0,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "4,5",
+    "special_notes": "",
+    "reg_date": "2026-02-01",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-02-01",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 126,
@@ -4027,25 +3763,23 @@ const camperData = [
     "age": 8,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,2,3",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
+      0,
       0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 127,
@@ -4059,25 +3793,23 @@ const camperData = [
     "age": 6,
     "city": "Methuen",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,5,6,7,8",
-    "weeks_arr": [
-      1,
-      1,
-      1,
-      0,
-      1,
-      1,
-      1,
-      1
-    ],
-    "reg_date": "2026-03-11",
     "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "reg_date": "2026-03-11",
+    "status": "enrolled",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": ""
   },
   {
     "id": 128,
@@ -4091,25 +3823,23 @@ const camperData = [
     "age": 5,
     "city": "Haverhill",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3,4,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-18",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
       0,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-03-18",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 129,
@@ -4123,11 +3853,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -4137,11 +3868,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 130,
@@ -4155,25 +3882,23 @@ const camperData = [
     "age": 9,
     "city": "Haverhill",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YXL",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-09",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-09",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 131,
@@ -4187,25 +3912,23 @@ const camperData = [
     "age": 0,
     "city": "Salem",
     "sex": "F",
-    "wr": "R",
     "allergies": "",
     "tshirt": "YXS",
     "notes": "",
-    "weeks": "1,3,5,7",
+    "special_notes": "No account on file as of W1",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
-      1,
       0,
-      1,
       0,
-      1,
       0,
-      1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 132,
@@ -4219,25 +3942,23 @@ const camperData = [
     "age": 0,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3,8",
+    "special_notes": "",
+    "reg_date": "2026-01-19",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
       0,
       0,
       0,
       0,
-      1
+      0,
+      0
     ],
-    "reg_date": "2026-01-19",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 133,
@@ -4251,11 +3972,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -4266,10 +3988,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 134,
@@ -4283,25 +4002,23 @@ const camperData = [
     "age": 7,
     "city": "Methuen",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "amoxicilin",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "4",
+    "special_notes": "",
+    "reg_date": "2026-03-09",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
-      1,
+      0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-03-09",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 135,
@@ -4315,25 +4032,23 @@ const camperData = [
     "age": 10,
     "city": "Salem",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-17",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
       0,
-      1,
-      1,
+      0,
+      0,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-01-17",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 136,
@@ -4347,25 +4062,23 @@ const camperData = [
     "age": 8,
     "city": "Methuen",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3",
+    "special_notes": "",
+    "reg_date": "2026-02-04",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
+      0,
       0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-02-04",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 137,
@@ -4379,11 +4092,12 @@ const camperData = [
     "age": 10,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "mom is medical director",
-    "weeks": "1,2,3,4,6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-08",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -4394,15 +4108,12 @@ const camperData = [
       1,
       0
     ],
-    "reg_date": "2026-01-08",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,6,7"
   },
   {
     "id": 138,
     "name": "Roman Sambataro",
-    "ptft": "",
+    "ptft": "PT",
     "paid": "",
     "enrollment": "",
     "parent": "",
@@ -4411,25 +4122,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
+      1,
       0,
+      1,
       0,
-      0,
-      0,
-      0,
+      1,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": "3,5,7"
   },
   {
     "id": 139,
@@ -4443,25 +4152,23 @@ const camperData = [
     "age": 6,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-02-09",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       0,
       0,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-02-09",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1"
   },
   {
     "id": 140,
@@ -4475,25 +4182,23 @@ const camperData = [
     "age": 10,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "4,5",
+    "special_notes": "",
+    "reg_date": "2026-01-21",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-01-21",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 141,
@@ -4507,30 +4212,28 @@ const camperData = [
     "age": 13,
     "city": "Billerica",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AM",
     "notes": "",
-    "weeks": "2,3",
+    "special_notes": "",
+    "reg_date": "2026-03-22",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       1,
-      1,
+      0,
       0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-03-22",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "2"
   },
   {
     "id": 142,
     "name": "Samuel Habib",
-    "ptft": "",
+    "ptft": "PT",
     "paid": "",
     "enrollment": "",
     "parent": "",
@@ -4539,25 +4242,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
       0,
+      1,
       0,
-      0,
-      0,
-      0,
-      0,
+      1,
+      1,
+      1,
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": "2,4,5,6"
   },
   {
     "id": 143,
@@ -4571,14 +4272,15 @@ const camperData = [
     "age": 7,
     "city": "Salem",
     "sex": "F",
-    "wr": "R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "2",
+    "special_notes": "",
+    "reg_date": "2026-01-08",
+    "status": "enrolled",
     "weeks_arr": [
       0,
-      1,
+      0,
       0,
       0,
       0,
@@ -4586,10 +4288,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-01-08",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 144,
@@ -4603,25 +4302,23 @@ const camperData = [
     "age": 11,
     "city": "Windham",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YL",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-10",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-10",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 145,
@@ -4635,25 +4332,23 @@ const camperData = [
     "age": 9,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "6,7",
+    "special_notes": "",
+    "reg_date": "2026-01-20",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
       0,
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0
     ],
-    "reg_date": "2026-01-20",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 146,
@@ -4667,25 +4362,23 @@ const camperData = [
     "age": 7,
     "city": "North Andover",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,?",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
+      0,
       0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 147,
@@ -4699,11 +4392,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -4714,10 +4408,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 148,
@@ -4731,11 +4422,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -4746,10 +4438,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 149,
@@ -4763,11 +4452,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -4777,11 +4467,7 @@ const camperData = [
       0,
       0,
       0
-    ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    ]
   },
   {
     "id": 150,
@@ -4795,30 +4481,28 @@ const camperData = [
     "age": 6,
     "city": "North Andover",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,6",
+    "special_notes": "",
+    "reg_date": "2026-01-06",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
       0,
-      1,
+      0,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-06",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 151,
     "name": "Valentino Perdomo",
-    "ptft": "",
+    "ptft": "PT",
     "paid": "",
     "enrollment": "",
     "parent": "",
@@ -4827,25 +4511,23 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "enrolled",
     "weeks_arr": [
+      1,
+      1,
       0,
-      0,
-      0,
-      0,
-      0,
+      1,
+      1,
       0,
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": "1,2,4,5"
   },
   {
     "id": 152,
@@ -4859,25 +4541,23 @@ const camperData = [
     "age": 10,
     "city": "Lawrence",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "AXS",
     "notes": "",
-    "weeks": "3,4",
+    "special_notes": "",
+    "reg_date": "2026-01-27",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
+      0,
+      0,
       0,
       0,
       0,
       0
     ],
-    "reg_date": "2026-01-27",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 153,
@@ -4891,11 +4571,12 @@ const camperData = [
     "age": 0,
     "city": "",
     "sex": "",
-    "wr": "",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "",
+    "special_notes": "",
+    "reg_date": "",
+    "status": "lead",
     "weeks_arr": [
       0,
       0,
@@ -4906,10 +4587,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "lead"
+    "weeks": ""
   },
   {
     "id": 154,
@@ -4923,25 +4601,23 @@ const camperData = [
     "age": 5,
     "city": "Salem",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YXS",
     "notes": "",
-    "weeks": "3,6",
+    "special_notes": "",
+    "reg_date": "2026-01-24",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
       0,
       0,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-01-24",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 155,
@@ -4955,25 +4631,23 @@ const camperData = [
     "age": 8,
     "city": "Salem",
     "sex": "F",
-    "wr": "W & R",
-    "allergies": "mosquitoes ",
+    "allergies": "mosquitoes",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "1,2,3,4,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-01-31",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
-      1,
-      1,
       0,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-01-31",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": "1,2"
   },
   {
     "id": 156,
@@ -4987,25 +4661,23 @@ const camperData = [
     "age": 8,
     "city": "Salem",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YS",
     "notes": "",
-    "weeks": "3,6",
+    "special_notes": "",
+    "reg_date": "2026-02-03",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
       0,
       0,
-      1,
+      0,
+      0,
       0,
       0
     ],
-    "reg_date": "2026-02-03",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 157,
@@ -5019,25 +4691,23 @@ const camperData = [
     "age": 8,
     "city": "Haverhill",
     "sex": "M",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "3,4,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-18",
+    "status": "enrolled",
     "weeks_arr": [
       0,
       0,
-      1,
-      1,
       0,
-      1,
-      1,
-      1
+      0,
+      0,
+      0,
+      0,
+      0
     ],
-    "reg_date": "2026-03-18",
-    "special_notes": "",
-    "is_emailed": false,
-    "status": "enrolled"
+    "weeks": ""
   },
   {
     "id": 158,
@@ -5051,11 +4721,12 @@ const camperData = [
     "age": 0,
     "city": "Haverhill",
     "sex": "F",
-    "wr": "W",
     "allergies": "",
     "tshirt": "",
     "notes": "",
-    "weeks": "1,2,3,4,6",
+    "special_notes": "",
+    "reg_date": "2026-02-01",
+    "status": "enrolled",
     "weeks_arr": [
       1,
       1,
@@ -5066,10 +4737,7 @@ const camperData = [
       0,
       0
     ],
-    "reg_date": "2026-02-01",
-    "special_notes": "",
-    "is_emailed": true,
-    "status": "enrolled"
+    "weeks": "1,2,3,4,6"
   },
   {
     "id": 159,
@@ -5083,11 +4751,40 @@ const camperData = [
     "age": 7,
     "city": "Lawrence",
     "sex": "F",
-    "wr": "W & R",
     "allergies": "",
     "tshirt": "YM",
     "notes": "",
-    "weeks": "1,2,3,4,5,6,7,8",
+    "special_notes": "",
+    "reg_date": "2026-03-18",
+    "status": "enrolled",
+    "weeks_arr": [
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "1,2"
+  },
+  {
+    "id": 200,
+    "name": "Emilia Santana",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "",
     "weeks_arr": [
       1,
       1,
@@ -5095,24 +4792,406 @@ const camperData = [
       1,
       1,
       1,
+      0,
+      0
+    ],
+    "weeks": "1,2,3,4,5,6",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 201,
+    "name": "Isaac Santana",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "",
+    "weeks_arr": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    "weeks": "1,2,3,4,5,6",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 202,
+    "name": "Nicholas Sorokin",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "",
+    "weeks_arr": [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    "weeks": "1,5",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 203,
+    "name": "Lucas Dalrymple",
+    "ptft": "PT",
+    "paid": "no",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Family discount \u2014 not paid as of W1",
+    "weeks_arr": [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
       1,
       1
     ],
-    "reg_date": "2026-03-18",
-    "special_notes": "",
-    "is_emailed": false,
+    "weeks": "1,3,4,6,7,8",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 204,
+    "name": "Jameson Dalrymple",
+    "ptft": "PT",
+    "paid": "no",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Family discount \u2014 not paid as of W1",
+    "weeks_arr": [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1
+    ],
+    "weeks": "1,3,4,6,7,8",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 205,
+    "name": "Clayton Marshall",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "3,4",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 206,
+    "name": "Lily Marshall",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "3,4",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 207,
+    "name": "Susan Devito",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    "weeks": "4,5,8",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 208,
+    "name": "Jacob Cottier",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "3",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 209,
+    "name": "Jake Zappala",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    "weeks": "5",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 210,
+    "name": "Liam Atchison",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "3",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 211,
+    "name": "Mackenzie Bowden",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "4",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 212,
+    "name": "Matthew Milone",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    "weeks": "5",
+    "reg_date": "",
+    "status": "enrolled"
+  },
+  {
+    "id": 213,
+    "name": "Patrick Zlinda-Short",
+    "ptft": "PT",
+    "paid": "",
+    "enrollment": "",
+    "parent": "",
+    "email": "",
+    "phone": "",
+    "age": 0,
+    "city": "",
+    "sex": "",
+    "allergies": "",
+    "tshirt": "",
+    "notes": "",
+    "special_notes": "Paperwork/payment may be missing",
+    "weeks_arr": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    "weeks": "4",
+    "reg_date": "",
     "status": "enrolled"
   }
 ];
 
-seedCampers(camperData);
-
-const insertComp = db.prepare(`
-  INSERT INTO comps (name,paid,parent,email,phone,age,city,sex,allergies,weeks,status)
-  VALUES (@name,@paid,@parent,@email,@phone,@age,@city,@sex,@allergies,@weeks,@status)
-`);
-
-const compData = [
+  const comps = [
   {
     "id": 205,
     "name": "Brendan Maxwell",
@@ -5193,7 +5272,7 @@ const compData = [
     "age": 11,
     "city": "Methuen",
     "sex": "M",
-    "allergies": "No",
+    "allergies": "",
     "weeks": "",
     "status": "comp"
   },
@@ -5207,22 +5286,8 @@ const compData = [
     "age": 9,
     "city": "Methuen",
     "sex": "M",
-    "allergies": "No",
+    "allergies": "",
     "weeks": "",
-    "status": "comp"
-  },
-  {
-    "id": 212,
-    "name": "Jameson Dalrymple",
-    "paid": "C",
-    "parent": "Chelsea Dietrich",
-    "email": "chelsea_dietrich22@yahoo.com",
-    "phone": "9787718413",
-    "age": 9,
-    "city": "Methuen",
-    "sex": "M",
-    "allergies": "No",
-    "weeks": "1, 5, 6, 7, 8",
     "status": "comp"
   },
   {
@@ -5235,8 +5300,8 @@ const compData = [
     "age": 11,
     "city": "Salem",
     "sex": "M",
-    "allergies": "No",
-    "weeks": "1, 3, 5, 6, 7, 8",
+    "allergies": "",
+    "weeks": "1,3,5,6,7,8",
     "status": "unregistered"
   },
   {
@@ -5249,8 +5314,8 @@ const compData = [
     "age": 11,
     "city": "Salem",
     "sex": "M",
-    "allergies": "No",
-    "weeks": "1, 3, 5, 6, 7, 8",
+    "allergies": "",
+    "weeks": "1,3,5,6,7,8",
     "status": "unregistered"
   },
   {
@@ -5262,16 +5327,32 @@ const compData = [
     "phone": "9782659106",
     "age": 7,
     "city": "Salem",
-    "sex": "M ",
-    "allergies": "No",
-    "weeks": "1, 3, 5, 6, 7, 8",
+    "sex": "M",
+    "allergies": "",
+    "weeks": "1,3,5,6,7,8",
     "status": "unregistered"
   }
 ];
-for (const c of compData) {
-  insertComp.run({ name:c.name, paid:c.paid||'C', parent:c.parent||'', email:c.email||'', phone:c.phone||'', age:c.age||0, city:c.city||'', sex:c.sex||'', allergies:c.allergies||'', weeks:c.weeks||'', status:c.status||'comp' });
+
+  for (const c of campers) {
+    await insertCamper(c);
+  }
+
+  for (const c of comps) {
+    await pool.query(`
+      INSERT INTO comps (name,paid,parent,email,phone,age,city,sex,allergies,weeks,status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [c.name||'', c.paid||'C', c.parent||'', c.email||'', c.phone||'',
+       c.age||0, c.city||'', c.sex||'', c.allergies||'', c.weeks||'', c.status||'comp']
+    );
+  }
+
+  const count = await pool.query('SELECT COUNT(*) as c FROM campers');
+  console.log('Done! Seeded ' + count.rows[0].c + ' campers + ' + comps.length + ' comps.');
+  await pool.end();
 }
 
-const count = db.prepare('SELECT COUNT(*) as c FROM campers').get().c;
-console.log('Done! Seeded ' + count + ' campers + ' + compData.length + ' comps.');
-db.close();
+seed().catch(err => {
+  console.error('Seed failed:', err.message);
+  process.exit(1);
+});
