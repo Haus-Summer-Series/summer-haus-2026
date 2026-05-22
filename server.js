@@ -7,13 +7,13 @@ const path = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Credentials ─────────────────────────────────────────────────────────────
+// ââ Credentials âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const USERS = {
   [process.env.ADMIN_USER || 'bren']:  process.env.ADMIN_PASS  || 'haus2026',
   [process.env.STAFF_USER || 'staff']: process.env.STAFF_PASS  || 'summer26',
 };
 
-// ── Middleware ───────────────────────────────────────────────────────────────
+// ââ Middleware âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -24,13 +24,13 @@ app.use(session({
   cookie: { secure: false, maxAge: 1000 * 60 * 60 * 12 }
 }));
 
-// ── PostgreSQL ───────────────────────────────────────────────────────────────
+// ââ PostgreSQL âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
-// ── Create tables if they don't exist ────────────────────────────────────────
+// ââ Create tables if they don't exist ââââââââââââââââââââââââââââââââââââââââ
 async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS campers (
@@ -78,7 +78,7 @@ async function initDB() {
   console.log('Database tables ready.');
 }
 
-// ── Row helper ───────────────────────────────────────────────────────────────
+// ââ Row helper âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function rowToCamper(r) {
   return {
     id: r.id, name: r.name, ptft: r.ptft||'', paid: r.paid||'',
@@ -92,7 +92,7 @@ function rowToCamper(r) {
   };
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// ââ Auth âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function requireAuth(req, res, next) {
   if (req.session && req.session.loggedIn) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not authenticated' });
@@ -124,11 +124,11 @@ app.get('/me', requireAuth, (req, res) => {
   res.json({ username: req.session.username, isAdmin: req.session.isAdmin });
 });
 
-// ── Protected routes ─────────────────────────────────────────────────────────
+// ââ Protected routes âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.use(requireAuth);
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── GET all campers ───────────────────────────────────────────────────────────
+// ââ GET all campers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.get('/api/campers', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM campers ORDER BY name');
@@ -136,7 +136,7 @@ app.get('/api/campers', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── GET single camper ─────────────────────────────────────────────────────────
+// ââ GET single camper âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.get('/api/campers/:id', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM campers WHERE id=$1', [req.params.id]);
@@ -145,7 +145,7 @@ app.get('/api/campers/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── POST new camper ───────────────────────────────────────────────────────────
+// ââ POST new camper âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.post('/api/campers', async (req, res) => {
   try {
     const b = req.body;
@@ -171,7 +171,7 @@ app.post('/api/campers', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── PUT update camper ─────────────────────────────────────────────────────────
+// ââ PUT update camper âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.put('/api/campers/:id', async (req, res) => {
   try {
     const b = req.body;
@@ -199,7 +199,7 @@ app.put('/api/campers/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── DELETE camper ─────────────────────────────────────────────────────────────
+// ââ DELETE camper âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.delete('/api/campers/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM campers WHERE id=$1', [req.params.id]);
@@ -207,7 +207,7 @@ app.delete('/api/campers/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Comps ─────────────────────────────────────────────────────────────────────
+// ââ Comps âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.get('/api/comps', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM comps ORDER BY name');
@@ -215,7 +215,51 @@ app.get('/api/comps', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Export CSV ────────────────────────────────────────────────────────────────
+// ââ Export CSV ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Comps CRUD ─────────────────────────────────────────────
+app.post('/api/comps', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const { rows } = await pool.query(`
+      INSERT INTO comps
+        (name, paid, parent, email, phone, age, city, sex, allergies, weeks, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      RETURNING *
+    `, [
+      b.name || '', b.paid || '', b.parent || '', b.email || '', b.phone || '',
+      b.age || null, b.city || '', b.sex || '', b.allergies || '', b.weeks || '',
+      b.status || 'comp'
+    ]);
+    res.json(rows[0]);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/comps/:id', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const { rows } = await pool.query(`
+      UPDATE comps SET
+        name=$1, paid=$2, parent=$3, email=$4, phone=$5,
+        age=$6, city=$7, sex=$8, allergies=$9, weeks=$10, status=$11
+      WHERE id=$12
+      RETURNING *
+    `, [
+      b.name || '', b.paid || '', b.parent || '', b.email || '', b.phone || '',
+      b.age || null, b.city || '', b.sex || '', b.allergies || '', b.weeks || '',
+      b.status || 'comp', req.params.id
+    ]);
+    if (!rows[0]) return res.status(404).json({ error: 'Comp not found' });
+    res.json(rows[0]);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/comps/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM comps WHERE id=$1', [req.params.id]);
+    res.json({ success: true, deleted: result.rowCount });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/export/csv', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM campers ORDER BY name');
@@ -243,7 +287,7 @@ app.get('/api/export/csv', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
+// ââ Stats âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.get('/api/stats', async (req, res) => {
   try {
     const q = async (sql) => (await pool.query(sql)).rows[0].c;
@@ -266,13 +310,13 @@ app.get('/api/stats', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Catch-all ─────────────────────────────────────────────────────────────────
+// ââ Catch-all âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// ââ Start âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 initDB().then(() => {
   app.listen(PORT, () => {
-    console.log(`\n🏋️  Summer Haus 2026 v2 → http://localhost:${PORT}`);
+    console.log(`\nðï¸  Summer Haus 2026 v2 â http://localhost:${PORT}`);
     console.log(`   Logins: bren / haus2026  |  staff / summer26`);
     console.log(`   Change via env vars: ADMIN_USER, ADMIN_PASS, STAFF_USER, STAFF_PASS\n`);
   });
